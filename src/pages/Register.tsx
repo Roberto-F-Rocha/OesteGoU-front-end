@@ -18,10 +18,12 @@ export default function Register() {
   const { toast } = useToast();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const cnhInputRef = useRef<HTMLInputElement>(null);
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
+  const [cnhName, setCnhName] = useState<string | null>(null);
 
   const [institutionQuery, setInstitutionQuery] = useState("");
   const [institutionOpen, setInstitutionOpen] = useState(false);
@@ -79,6 +81,16 @@ export default function Register() {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocName(file.name);
+  };
+
+  const handleCnh = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
+      return;
+    }
+    setCnhName(file.name);
   };
 
   const formatCep = (value: string) => {
@@ -143,6 +155,15 @@ export default function Register() {
       toast({
         title: "Declaração obrigatória",
         description: "Envie o comprovante de matrícula.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (role === "driver" && !cnhName) {
+      toast({
+        title: "CNH obrigatória",
+        description: "Envie a CNH digital para concluir o cadastro de motorista.",
         variant: "destructive",
       });
       return;
@@ -472,6 +493,31 @@ export default function Register() {
                 <FileText className="w-4 h-4 mr-2" />
                 {docName ? <span className="truncate">{docName}</span> : "Enviar comprovante"}
               </Button>
+            </div>
+          )}
+
+          {role === "driver" && (
+            <div className="space-y-2">
+              <Label>
+                CNH digital <span className="text-destructive">*</span>
+              </Label>
+              <input
+                ref={cnhInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleCnh}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => cnhInputRef.current?.click()}
+                className="w-full justify-start"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                {cnhName ? <span className="truncate">{cnhName}</span> : "Enviar CNH digital"}
+              </Button>
+              <p className="text-xs text-muted-foreground">Imagem ou PDF da CNH, até 5MB</p>
             </div>
           )}
 
