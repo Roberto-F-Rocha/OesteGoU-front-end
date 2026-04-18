@@ -37,7 +37,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
             <Bus className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-heading font-bold text-sidebar-foreground text-sm">ALTO-BUS</h2>
+            <h2 className="font-heading font-bold text-sidebar-foreground text-sm">OesteGoU</h2>
             <p className="text-xs text-sidebar-foreground/60">{title}</p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Bus className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-heading font-bold text-sm">ALTO-BUS</span>
+            <span className="font-heading font-bold text-sm">OesteGoU</span>
           </div>
           <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground">
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

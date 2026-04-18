@@ -25,7 +25,7 @@ export default function AdminDashboard() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">Painel Administrativo</h1>
-          <p className="text-muted-foreground text-sm">Visão geral do sistema ALTO-BUS</p>
+          <p className="text-muted-foreground text-sm">Visão geral do sistema OesteGoU</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
