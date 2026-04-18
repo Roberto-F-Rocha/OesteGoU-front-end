@@ -1,14 +1,15 @@
 import { useState, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bus, GraduationCap, Truck, Camera, Upload, X, FileText, Search, Loader2 } from "lucide-react";
+import { Bus, GraduationCap, Truck, Shield, Camera, Upload, X, FileText, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { rnInstitutions } from "@/data/institutions";
+import { addAdmin, addUser, getAdminByCity } from "@/data/registrationsStore";
 
-type Role = "student" | "driver";
+type Role = "student" | "driver" | "admin";
 
 export default function Register() {
   const [params] = useSearchParams();
@@ -44,6 +45,11 @@ export default function Register() {
     city: "",
     state: "",
     password: "",
+    // Admin-only
+    secretariatName: "",
+    secretariatEmail: "",
+    adminCity: "",
+    adminState: "",
   });
 
   const filteredInstitutions = useMemo(() => {
@@ -99,12 +105,23 @@ export default function Register() {
     return digits;
   };
 
-  const handleCepChange = async (raw: string) => {
+  const fetchCep = async (
+    raw: string,
+    target: "address" | "admin",
+  ) => {
     const masked = formatCep(raw);
-    setForm((f) => ({ ...f, cep: masked }));
+    if (target === "address") {
+      setForm((f) => ({ ...f, cep: masked }));
+    } else {
+      setForm((f) => ({ ...f, cep: masked }));
+    }
     const digits = masked.replace(/\D/g, "");
     if (digits.length !== 8) {
-      setForm((f) => ({ ...f, city: "", state: "" }));
+      if (target === "address") {
+        setForm((f) => ({ ...f, city: "", state: "" }));
+      } else {
+        setForm((f) => ({ ...f, adminCity: "", adminState: "", city: "", state: "" }));
+      }
       return;
     }
     setCepLoading(true);
@@ -113,15 +130,31 @@ export default function Register() {
       const data = await res.json();
       if (data.erro) {
         toast({ title: "CEP não encontrado", description: "Verifique o CEP digitado.", variant: "destructive" });
-        setForm((f) => ({ ...f, city: "", state: "" }));
+        if (target === "address") {
+          setForm((f) => ({ ...f, city: "", state: "" }));
+        } else {
+          setForm((f) => ({ ...f, adminCity: "", adminState: "" }));
+        }
       } else {
-        setForm((f) => ({
-          ...f,
-          city: data.localidade || "",
-          state: data.uf || "",
-          street: f.street || data.logradouro || "",
-          neighborhood: f.neighborhood || data.bairro || "",
-        }));
+        if (target === "address") {
+          setForm((f) => ({
+            ...f,
+            city: data.localidade || "",
+            state: data.uf || "",
+            street: f.street || data.logradouro || "",
+            neighborhood: f.neighborhood || data.bairro || "",
+          }));
+        } else {
+          setForm((f) => ({
+            ...f,
+            adminCity: data.localidade || "",
+            adminState: data.uf || "",
+            city: data.localidade || "",
+            state: data.uf || "",
+            street: f.street || data.logradouro || "",
+            neighborhood: f.neighborhood || data.bairro || "",
+          }));
+        }
       }
     } catch {
       toast({ title: "Erro ao buscar CEP", description: "Tente novamente.", variant: "destructive" });
@@ -169,6 +202,45 @@ export default function Register() {
       return;
     }
 
+    if (role === "admin") {
+      if (!form.secretariatName || !form.secretariatEmail) {
+        toast({
+          title: "Dados da secretaria",
+          description: "Informe nome e e-mail da secretaria.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!form.adminCity || !form.adminState) {
+        toast({
+          title: "Cidade obrigatória",
+          description: "Informe um CEP válido para definir a cidade.",
+          variant: "destructive",
+        });
+        return;
+      }
+      addAdmin({
+        city: form.adminCity,
+        state: form.adminState,
+        secretariatName: form.secretariatName,
+        secretariatEmail: form.secretariatEmail,
+        responsible: {
+          name: form.name,
+          cpf: form.cpf,
+          email: form.email,
+          phone: form.phone,
+          birthDate: form.birthDate,
+          photo,
+        },
+      });
+      toast({
+        title: "Administrador cadastrado!",
+        description: `Você é o responsável por ${form.adminCity} - ${form.adminState}.`,
+      });
+      navigate("/login");
+      return;
+    }
+
     if (!form.city || !form.state) {
       toast({
         title: "CEP inválido",
@@ -178,15 +250,44 @@ export default function Register() {
       return;
     }
 
+    addUser({
+      role,
+      name: form.name,
+      cpf: form.cpf,
+      email: form.email,
+      phone: form.phone,
+      birthDate: form.birthDate,
+      institution: role === "student" ? form.institution : undefined,
+      photo,
+      docName: role === "student" ? docName : null,
+      cnhName: role === "driver" ? cnhName : null,
+      address: {
+        cep: form.cep,
+        street: form.street,
+        number: form.number,
+        neighborhood: form.neighborhood,
+        city: form.city,
+        state: form.state,
+      },
+    });
+
+    const cityAdmin = getAdminByCity(form.city);
+    const routedTo = cityAdmin
+      ? `${cityAdmin.secretariatName} (${form.city}/${form.state})`
+      : `administrador da cidade de ${form.city}/${form.state}`;
+
     toast({
       title: "Cadastro enviado!",
-      description:
-        role === "student"
-          ? "Seu cadastro foi enviado para análise do administrador."
-          : "Cadastro de motorista realizado com sucesso.",
+      description: `Encaminhado para ${routedTo}.`,
     });
     navigate("/login");
   };
+
+  const roles = [
+    { value: "student" as const, label: "Aluno", icon: GraduationCap },
+    { value: "driver" as const, label: "Motorista", icon: Truck },
+    { value: "admin" as const, label: "Admin", icon: Shield },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 py-8">
@@ -204,16 +305,13 @@ export default function Register() {
         </div>
 
         {/* Role toggle */}
-        <div className="grid grid-cols-2 gap-2 mb-4 p-1 bg-muted rounded-lg">
-          {([
-            { value: "student", label: "Aluno", icon: GraduationCap },
-            { value: "driver", label: "Motorista", icon: Truck },
-          ] as const).map((r) => (
+        <div className="grid grid-cols-3 gap-2 mb-4 p-1 bg-muted rounded-lg">
+          {roles.map((r) => (
             <button
               key={r.value}
               type="button"
               onClick={() => setRole(r.value)}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-sm font-medium transition-all ${
                 role === r.value
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -232,6 +330,88 @@ export default function Register() {
           onSubmit={handleSubmit}
           className="space-y-4 bg-card p-6 rounded-xl border border-border"
         >
+          {/* Admin-only: dados da secretaria */}
+          {role === "admin" && (
+            <div className="space-y-4 pb-2 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Dados da Secretaria</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="adminCep">
+                  CEP da cidade <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="adminCep"
+                    placeholder="00000-000"
+                    value={form.cep}
+                    onChange={(e) => fetchCep(e.target.value, "admin")}
+                    maxLength={9}
+                    required
+                  />
+                  {cepLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="adminCity">Cidade</Label>
+                  <Input
+                    id="adminCity"
+                    value={form.adminCity}
+                    readOnly
+                    disabled
+                    placeholder="Preenchido pelo CEP"
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="adminState">Estado</Label>
+                  <Input
+                    id="adminState"
+                    value={form.adminState}
+                    readOnly
+                    disabled
+                    placeholder="UF"
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secretariatName">
+                  Nome da secretaria <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="secretariatName"
+                  placeholder="Ex: Secretaria de Educação"
+                  value={form.secretariatName}
+                  onChange={(e) => setForm({ ...form, secretariatName: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="secretariatEmail">
+                  E-mail da secretaria <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="secretariatEmail"
+                  type="email"
+                  placeholder="secretaria@cidade.gov.br"
+                  value={form.secretariatEmail}
+                  onChange={(e) => setForm({ ...form, secretariatEmail: e.target.value })}
+                  required
+                />
+              </div>
+
+              <h3 className="text-sm font-semibold text-foreground pt-2">
+                Dados do responsável
+              </h3>
+            </div>
+          )}
+
           {/* Photo upload (mandatory) */}
           <div className="space-y-2">
             <Label>
@@ -280,7 +460,9 @@ export default function Register() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Nome completo <span className="text-destructive">*</span></Label>
+            <Label htmlFor="name">
+              Nome completo <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="name"
               value={form.name}
@@ -289,9 +471,11 @@ export default function Register() {
             />
           </div>
 
-          {role === "student" && (
+          {(role === "student" || role === "admin") && (
             <div className="space-y-2">
-              <Label htmlFor="cpf">CPF <span className="text-destructive">*</span></Label>
+              <Label htmlFor="cpf">
+                CPF <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="cpf"
                 placeholder="000.000.000-00"
@@ -303,7 +487,9 @@ export default function Register() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="birthDate">Data de nascimento <span className="text-destructive">*</span></Label>
+            <Label htmlFor="birthDate">
+              Data de nascimento <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="birthDate"
               type="date"
@@ -315,7 +501,9 @@ export default function Register() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
+            <Label htmlFor="email">
+              Email <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="email"
               type="email"
@@ -326,7 +514,9 @@ export default function Register() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Telefone <span className="text-destructive">*</span></Label>
+            <Label htmlFor="phone">
+              Telefone <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="phone"
               placeholder="(00) 00000-0000"
@@ -385,92 +575,96 @@ export default function Register() {
             </div>
           )}
 
-          {/* Endereço */}
-          <div className="pt-2 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Endereço</h3>
+          {/* Endereço (alunos e motoristas) */}
+          {role !== "admin" && (
+            <div className="pt-2 border-t border-border">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Endereço</h3>
 
-            <div className="space-y-2">
-              <Label htmlFor="cep">CEP <span className="text-destructive">*</span></Label>
-              <div className="relative">
-                <Input
-                  id="cep"
-                  placeholder="00000-000"
-                  value={form.cep}
-                  onChange={(e) => handleCepChange(e.target.value)}
-                  maxLength={9}
-                  required
-                />
-                {cepLoading && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mt-3">
               <div className="space-y-2">
-                <Label htmlFor="city">Cidade</Label>
-                <Input
-                  id="city"
-                  value={form.city}
-                  readOnly
-                  disabled
-                  placeholder="Preenchido pelo CEP"
-                  className="bg-muted/50 cursor-not-allowed"
-                />
+                <Label htmlFor="cep">
+                  CEP <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="cep"
+                    placeholder="00000-000"
+                    value={form.cep}
+                    onChange={(e) => fetchCep(e.target.value, "address")}
+                    maxLength={9}
+                    required
+                  />
+                  {cepLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">Estado</Label>
-                <Input
-                  id="state"
-                  value={form.state}
-                  readOnly
-                  disabled
-                  placeholder="UF"
-                  className="bg-muted/50 cursor-not-allowed"
-                />
+
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="space-y-2">
+                  <Label htmlFor="city">Cidade</Label>
+                  <Input
+                    id="city"
+                    value={form.city}
+                    readOnly
+                    disabled
+                    placeholder="Preenchido pelo CEP"
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">Estado</Label>
+                  <Input
+                    id="state"
+                    value={form.state}
+                    readOnly
+                    disabled
+                    placeholder="UF"
+                    className="bg-muted/50 cursor-not-allowed"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2 mt-3">
-              <Label htmlFor="street">
-                Endereço (Rua) <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="street"
-                placeholder="Nome da rua"
-                value={form.street}
-                onChange={(e) => setForm({ ...form, street: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mt-3">
-              <div className="space-y-2 col-span-1">
-                <Label htmlFor="number">
-                  Número <span className="text-destructive">*</span>
+              <div className="space-y-2 mt-3">
+                <Label htmlFor="street">
+                  Endereço (Rua) <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="number"
-                  placeholder="Nº"
-                  value={form.number}
-                  onChange={(e) => setForm({ ...form, number: e.target.value })}
+                  id="street"
+                  placeholder="Nome da rua"
+                  value={form.street}
+                  onChange={(e) => setForm({ ...form, street: e.target.value })}
                   required
                 />
               </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="neighborhood">
-                  Bairro <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="neighborhood"
-                  placeholder="Bairro"
-                  value={form.neighborhood}
-                  onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
-                  required
-                />
+
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                <div className="space-y-2 col-span-1">
+                  <Label htmlFor="number">
+                    Número <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="number"
+                    placeholder="Nº"
+                    value={form.number}
+                    onChange={(e) => setForm({ ...form, number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="neighborhood">
+                    Bairro <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="neighborhood"
+                    placeholder="Bairro"
+                    value={form.neighborhood}
+                    onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {role === "student" && (
             <div className="space-y-2">
@@ -522,7 +716,9 @@ export default function Register() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="password">Senha <span className="text-destructive">*</span></Label>
+            <Label htmlFor="password">
+              Senha <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="password"
               type="password"
