@@ -520,6 +520,9 @@ export default function Register() {
               <p className="text-xs text-muted-foreground">Imagem ou PDF da CNH, até 5MB</p>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha <span className="text-destructive">*</span></Label>
             <Input
               id="password"
               type="password"
