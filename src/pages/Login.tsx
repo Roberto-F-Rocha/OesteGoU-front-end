@@ -115,6 +115,18 @@ export default function Login() {
               </div>
             </div>
             <Button type="submit" className="w-full">Entrar</Button>
+            {selectedRole !== "admin" && (
+              <p className="text-xs text-center text-muted-foreground">
+                Não tem conta?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/cadastro?role=${selectedRole}`)}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Cadastre-se
+                </button>
+              </p>
+            )}
             <p className="text-xs text-center text-muted-foreground">
               Demo: {selectedRole === "admin" ? "admin@altobus.com / admin123" : selectedRole === "student" ? "aluno@altobus.com / aluno123" : "motorista@altobus.com / motorista123"}
             </p>
