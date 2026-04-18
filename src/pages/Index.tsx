@@ -16,7 +16,7 @@ export default function Index() {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Bus className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-heading font-bold text-xl text-foreground">ALTO-BUS</span>
+            <span className="font-heading font-bold text-xl text-foreground">OesteGoU</span>
           </div>
           <Button onClick={() => navigate("/login")} size="sm">
             Entrar <ArrowRight className="w-4 h-4 ml-1" />
@@ -70,7 +70,7 @@ export default function Index() {
       <footer className="border-t border-border py-6">
         <div className="container mx-auto flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Bus className="w-4 h-4" />
-          <span>ALTO-BUS © 2026 — Transporte Universitário</span>
+          <span>OesteGoU © 2026 — Transporte Universitário</span>
         </div>
       </footer>
     </div>
