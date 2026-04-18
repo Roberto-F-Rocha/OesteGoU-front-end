@@ -18,10 +18,12 @@ export default function Register() {
   const { toast } = useToast();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const cnhInputRef = useRef<HTMLInputElement>(null);
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
+  const [cnhName, setCnhName] = useState<string | null>(null);
 
   const [institutionQuery, setInstitutionQuery] = useState("");
   const [institutionOpen, setInstitutionOpen] = useState(false);
