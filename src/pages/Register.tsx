@@ -160,6 +160,15 @@ export default function Register() {
       return;
     }
 
+    if (role === "driver" && !cnhName) {
+      toast({
+        title: "CNH obrigatória",
+        description: "Envie a CNH digital para concluir o cadastro de motorista.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!form.city || !form.state) {
       toast({
         title: "CEP inválido",
