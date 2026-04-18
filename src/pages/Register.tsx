@@ -496,8 +496,30 @@ export default function Register() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha <span className="text-destructive">*</span></Label>
+          {role === "driver" && (
+            <div className="space-y-2">
+              <Label>
+                CNH digital <span className="text-destructive">*</span>
+              </Label>
+              <input
+                ref={cnhInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleCnh}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => cnhInputRef.current?.click()}
+                className="w-full justify-start"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                {cnhName ? <span className="truncate">{cnhName}</span> : "Enviar CNH digital"}
+              </Button>
+              <p className="text-xs text-muted-foreground">Imagem ou PDF da CNH, até 5MB</p>
+            </div>
+          )}
             <Input
               id="password"
               type="password"
