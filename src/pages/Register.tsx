@@ -83,6 +83,16 @@ export default function Register() {
     setDocName(file.name);
   };
 
+  const handleCnh = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
+      return;
+    }
+    setCnhName(file.name);
+  };
+
   const formatCep = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 8);
     if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
