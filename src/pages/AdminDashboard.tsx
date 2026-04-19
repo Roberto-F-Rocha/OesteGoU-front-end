@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Users, Truck, GraduationCap, Calendar, MapPin, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import StatCard from "@/components/StatCard";
+import AdminDriversManager from "@/components/AdminDriversManager";
 import { students, drivers, universities, schedules, weeklySchedules, confirmations } from "@/data/mockData";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default function AdminDashboard() {
           <TabsList>
             <TabsTrigger value="overview">Resumo</TabsTrigger>
             <TabsTrigger value="students">Alunos</TabsTrigger>
+            <TabsTrigger value="drivers">Motoristas</TabsTrigger>
             <TabsTrigger value="schedules">Horários</TabsTrigger>
             <TabsTrigger value="confirmations">Confirmações</TabsTrigger>
           </TabsList>
@@ -118,6 +120,10 @@ export default function AdminDashboard() {
                 </table>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="drivers" className="mt-4">
+            <AdminDriversManager adminCity="" adminState="" />
           </TabsContent>
 
           <TabsContent value="schedules" className="mt-4">
