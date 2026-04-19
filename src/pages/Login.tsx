@@ -115,16 +115,22 @@ export default function Login() {
               </div>
             </div>
             <Button type="submit" className="w-full">Entrar</Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Não tem conta?{" "}
-              <button
-                type="button"
-                onClick={() => navigate(selectedRole === "admin" ? "/cadastro/admin" : selectedRole === "driver" ? "/cadastro/motorista" : "/cadastro/aluno")}
-                className="text-primary hover:underline font-medium"
-              >
-                Cadastre-se
-              </button>
-            </p>
+            {selectedRole !== "driver" ? (
+              <p className="text-xs text-center text-muted-foreground">
+                Não tem conta?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate(selectedRole === "admin" ? "/cadastro/admin" : "/cadastro/aluno")}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Cadastre-se
+                </button>
+              </p>
+            ) : (
+              <p className="text-xs text-center text-muted-foreground">
+                Motoristas recebem acesso da secretaria. Procure o administrador da sua cidade.
+              </p>
+            )}
             <p className="text-xs text-center text-muted-foreground">
               Demo: {selectedRole === "admin" ? "admin@altobus.com / admin123" : selectedRole === "student" ? "aluno@altobus.com / aluno123" : "motorista@altobus.com / motorista123"}
             </p>
