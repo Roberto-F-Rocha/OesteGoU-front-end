@@ -119,7 +119,7 @@ export default function Login() {
               Não tem conta?{" "}
               <button
                 type="button"
-                onClick={() => navigate(`/cadastro?role=${selectedRole}`)}
+                onClick={() => navigate(selectedRole === "admin" ? "/cadastro/admin" : selectedRole === "driver" ? "/cadastro/motorista" : "/cadastro/aluno")}
                 className="text-primary hover:underline font-medium"
               >
                 Cadastre-se

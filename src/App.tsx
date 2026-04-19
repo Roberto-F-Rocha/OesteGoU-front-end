@@ -31,7 +31,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/cadastro" element={<Register />} />
+            <Route path="/cadastro/aluno" element={<Register role="student" />} />
+            <Route path="/cadastro/motorista" element={<Register role="driver" />} />
+            <Route path="/cadastro/admin" element={<Register role="admin" />} />
             <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
             <Route path="/aluno/*" element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
             <Route path="/motorista/*" element={<ProtectedRoute role="driver"><DriverDashboard /></ProtectedRoute>} />
