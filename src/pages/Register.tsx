@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Bus, GraduationCap, Truck, Shield, Camera, Upload, X, FileText, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,19 @@ import { useToast } from "@/hooks/use-toast";
 import { rnInstitutions } from "@/data/institutions";
 import { addAdmin, addUser, getAdminByCity } from "@/data/registrationsStore";
 
-type Role = "student" | "driver" | "admin";
+export type Role = "student" | "driver" | "admin";
 
-export default function Register() {
-  const [params] = useSearchParams();
-  const initialRole = (params.get("role") as Role) || "student";
-  const [role, setRole] = useState<Role>(initialRole);
+interface RegisterProps {
+  role: Role;
+}
+
+const roleMeta: Record<Role, { label: string; icon: typeof Bus; subtitle: string }> = {
+  student: { label: "Aluno", icon: GraduationCap, subtitle: "Cadastro de aluno" },
+  driver: { label: "Motorista", icon: Truck, subtitle: "Cadastro de motorista" },
+  admin: { label: "Administrador", icon: Shield, subtitle: "Cadastro de administrador" },
+};
+
+export default function Register({ role }: RegisterProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -45,19 +52,19 @@ export default function Register() {
     city: "",
     state: "",
     password: "",
-    // Admin-only
     secretariatName: "",
     secretariatEmail: "",
     adminCity: "",
     adminState: "",
   });
 
+  const meta = roleMeta[role];
+  const RoleIcon = meta.icon;
+
   const filteredInstitutions = useMemo(() => {
     const q = institutionQuery.trim().toLowerCase();
     if (!q) return rnInstitutions.slice(0, 8);
-    return rnInstitutions
-      .filter((name) => name.toLowerCase().includes(q))
-      .slice(0, 8);
+    return rnInstitutions.filter((name) => name.toLowerCase().includes(q)).slice(0, 8);
   }, [institutionQuery]);
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,16 +112,9 @@ export default function Register() {
     return digits;
   };
 
-  const fetchCep = async (
-    raw: string,
-    target: "address" | "admin",
-  ) => {
+  const fetchCep = async (raw: string, target: "address" | "admin") => {
     const masked = formatCep(raw);
-    if (target === "address") {
-      setForm((f) => ({ ...f, cep: masked }));
-    } else {
-      setForm((f) => ({ ...f, cep: masked }));
-    }
+    setForm((f) => ({ ...f, cep: masked }));
     const digits = masked.replace(/\D/g, "");
     if (digits.length !== 8) {
       if (target === "address") {
@@ -167,56 +167,32 @@ export default function Register() {
     e.preventDefault();
 
     if (!photoFile) {
-      toast({
-        title: "Foto obrigatória",
-        description: "Você precisa enviar uma foto para concluir o cadastro.",
-        variant: "destructive",
-      });
+      toast({ title: "Foto obrigatória", description: "Você precisa enviar uma foto para concluir o cadastro.", variant: "destructive" });
       return;
     }
 
     if (role === "student" && !form.institution) {
-      toast({
-        title: "Instituição obrigatória",
-        description: "Selecione sua instituição da lista.",
-        variant: "destructive",
-      });
+      toast({ title: "Instituição obrigatória", description: "Selecione sua instituição da lista.", variant: "destructive" });
       return;
     }
 
     if (role === "student" && !docName) {
-      toast({
-        title: "Declaração obrigatória",
-        description: "Envie o comprovante de matrícula.",
-        variant: "destructive",
-      });
+      toast({ title: "Declaração obrigatória", description: "Envie o comprovante de matrícula.", variant: "destructive" });
       return;
     }
 
     if (role === "driver" && !cnhName) {
-      toast({
-        title: "CNH obrigatória",
-        description: "Envie a CNH digital para concluir o cadastro de motorista.",
-        variant: "destructive",
-      });
+      toast({ title: "CNH obrigatória", description: "Envie a CNH digital para concluir o cadastro de motorista.", variant: "destructive" });
       return;
     }
 
     if (role === "admin") {
       if (!form.secretariatName || !form.secretariatEmail) {
-        toast({
-          title: "Dados da secretaria",
-          description: "Informe nome e e-mail da secretaria.",
-          variant: "destructive",
-        });
+        toast({ title: "Dados da secretaria", description: "Informe nome e e-mail da secretaria.", variant: "destructive" });
         return;
       }
       if (!form.adminCity || !form.adminState) {
-        toast({
-          title: "Cidade obrigatória",
-          description: "Informe um CEP válido para definir a cidade.",
-          variant: "destructive",
-        });
+        toast({ title: "Cidade obrigatória", description: "Informe um CEP válido para definir a cidade.", variant: "destructive" });
         return;
       }
       addAdmin({
@@ -233,20 +209,13 @@ export default function Register() {
           photo,
         },
       });
-      toast({
-        title: "Administrador cadastrado!",
-        description: `Você é o responsável por ${form.adminCity} - ${form.adminState}.`,
-      });
+      toast({ title: "Administrador cadastrado!", description: `Você é o responsável por ${form.adminCity} - ${form.adminState}.` });
       navigate("/login");
       return;
     }
 
     if (!form.city || !form.state) {
-      toast({
-        title: "CEP inválido",
-        description: "Informe um CEP válido para preencher cidade e estado.",
-        variant: "destructive",
-      });
+      toast({ title: "CEP inválido", description: "Informe um CEP válido para preencher cidade e estado.", variant: "destructive" });
       return;
     }
 
@@ -276,18 +245,9 @@ export default function Register() {
       ? `${cityAdmin.secretariatName} (${form.city}/${form.state})`
       : `administrador da cidade de ${form.city}/${form.state}`;
 
-    toast({
-      title: "Cadastro enviado!",
-      description: `Encaminhado para ${routedTo}.`,
-    });
+    toast({ title: "Cadastro enviado!", description: `Encaminhado para ${routedTo}.` });
     navigate("/login");
   };
-
-  const roles = [
-    { value: "student" as const, label: "Aluno", icon: GraduationCap },
-    { value: "driver" as const, label: "Motorista", icon: Truck },
-    { value: "admin" as const, label: "Admin", icon: Shield },
-  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 py-8">
@@ -304,23 +264,24 @@ export default function Register() {
           <p className="text-muted-foreground text-sm mt-1">Criar nova conta</p>
         </div>
 
-        {/* Role toggle */}
-        <div className="grid grid-cols-3 gap-2 mb-4 p-1 bg-muted rounded-lg">
-          {roles.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => setRole(r.value)}
-              className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-sm font-medium transition-all ${
-                role === r.value
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <r.icon className="w-4 h-4" />
-              {r.label}
-            </button>
-          ))}
+        {/* Role badge (fixed by route) */}
+        <div className="flex items-center justify-between mb-4 p-3 rounded-lg border border-border bg-card">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <RoleIcon className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-heading font-semibold text-foreground text-sm">{meta.label}</p>
+              <p className="text-xs text-muted-foreground">{meta.subtitle}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Trocar
+          </button>
         </div>
 
         <motion.form
@@ -330,7 +291,6 @@ export default function Register() {
           onSubmit={handleSubmit}
           className="space-y-4 bg-card p-6 rounded-xl border border-border"
         >
-          {/* Admin-only: dados da secretaria */}
           {role === "admin" && (
             <div className="space-y-4 pb-2 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">Dados da Secretaria</h3>
@@ -357,25 +317,11 @@ export default function Register() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="adminCity">Cidade</Label>
-                  <Input
-                    id="adminCity"
-                    value={form.adminCity}
-                    readOnly
-                    disabled
-                    placeholder="Preenchido pelo CEP"
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input id="adminCity" value={form.adminCity} readOnly disabled placeholder="Preenchido pelo CEP" className="bg-muted/50 cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="adminState">Estado</Label>
-                  <Input
-                    id="adminState"
-                    value={form.adminState}
-                    readOnly
-                    disabled
-                    placeholder="UF"
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input id="adminState" value={form.adminState} readOnly disabled placeholder="UF" className="bg-muted/50 cursor-not-allowed" />
                 </div>
               </div>
 
@@ -383,32 +329,17 @@ export default function Register() {
                 <Label htmlFor="secretariatName">
                   Nome da secretaria <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="secretariatName"
-                  placeholder="Ex: Secretaria de Educação"
-                  value={form.secretariatName}
-                  onChange={(e) => setForm({ ...form, secretariatName: e.target.value })}
-                  required
-                />
+                <Input id="secretariatName" placeholder="Ex: Secretaria de Educação" value={form.secretariatName} onChange={(e) => setForm({ ...form, secretariatName: e.target.value })} required />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="secretariatEmail">
                   E-mail da secretaria <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="secretariatEmail"
-                  type="email"
-                  placeholder="secretaria@cidade.gov.br"
-                  value={form.secretariatEmail}
-                  onChange={(e) => setForm({ ...form, secretariatEmail: e.target.value })}
-                  required
-                />
+                <Input id="secretariatEmail" type="email" placeholder="secretaria@cidade.gov.br" value={form.secretariatEmail} onChange={(e) => setForm({ ...form, secretariatEmail: e.target.value })} required />
               </div>
 
-              <h3 className="text-sm font-semibold text-foreground pt-2">
-                Dados do responsável
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground pt-2">Dados do responsável</h3>
             </div>
           )}
 
@@ -422,12 +353,7 @@ export default function Register() {
                 {photo ? (
                   <>
                     <img src={photo} alt="Pré-visualização" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={removePhoto}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                      aria-label="Remover foto"
-                    >
+                    <button type="button" onClick={removePhoto} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center" aria-label="Remover foto">
                       <X className="w-3 h-3" />
                     </button>
                   </>
@@ -436,21 +362,8 @@ export default function Register() {
                 )}
               </div>
               <div className="flex-1">
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhoto}
-                  className="hidden"
-                  id="photo-input"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="w-full"
-                >
+                <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" id="photo-input" />
+                <Button type="button" variant="outline" size="sm" onClick={() => photoInputRef.current?.click()} className="w-full">
                   <Upload className="w-4 h-4 mr-2" />
                   {photo ? "Alterar foto" : "Enviar foto"}
                 </Button>
@@ -463,12 +376,7 @@ export default function Register() {
             <Label htmlFor="name">
               Nome completo <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
+            <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
 
           {(role === "student" || role === "admin") && (
@@ -476,13 +384,7 @@ export default function Register() {
               <Label htmlFor="cpf">
                 CPF <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="cpf"
-                placeholder="000.000.000-00"
-                value={form.cpf}
-                onChange={(e) => setForm({ ...form, cpf: e.target.value })}
-                required
-              />
+              <Input id="cpf" placeholder="000.000.000-00" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} required />
             </div>
           )}
 
@@ -490,40 +392,21 @@ export default function Register() {
             <Label htmlFor="birthDate">
               Data de nascimento <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="birthDate"
-              type="date"
-              value={form.birthDate}
-              max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-              required
-            />
+            <Input id="birthDate" type="date" value={form.birthDate} max={new Date().toISOString().split("T")[0]} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} required />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">
               Email <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-            />
+            <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="phone">
               Telefone <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="phone"
-              placeholder="(00) 00000-0000"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              required
-            />
+            <Input id="phone" placeholder="(00) 00000-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
           </div>
 
           {role === "student" && (
@@ -575,7 +458,6 @@ export default function Register() {
             </div>
           )}
 
-          {/* Endereço (alunos e motoristas) */}
           {role !== "admin" && (
             <div className="pt-2 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground mb-3">Endereço</h3>
@@ -585,14 +467,7 @@ export default function Register() {
                   CEP <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative">
-                  <Input
-                    id="cep"
-                    placeholder="00000-000"
-                    value={form.cep}
-                    onChange={(e) => fetchCep(e.target.value, "address")}
-                    maxLength={9}
-                    required
-                  />
+                  <Input id="cep" placeholder="00000-000" value={form.cep} onChange={(e) => fetchCep(e.target.value, "address")} maxLength={9} required />
                   {cepLoading && (
                     <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
                   )}
@@ -602,25 +477,11 @@ export default function Register() {
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div className="space-y-2">
                   <Label htmlFor="city">Cidade</Label>
-                  <Input
-                    id="city"
-                    value={form.city}
-                    readOnly
-                    disabled
-                    placeholder="Preenchido pelo CEP"
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input id="city" value={form.city} readOnly disabled placeholder="Preenchido pelo CEP" className="bg-muted/50 cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="state">Estado</Label>
-                  <Input
-                    id="state"
-                    value={form.state}
-                    readOnly
-                    disabled
-                    placeholder="UF"
-                    className="bg-muted/50 cursor-not-allowed"
-                  />
+                  <Input id="state" value={form.state} readOnly disabled placeholder="UF" className="bg-muted/50 cursor-not-allowed" />
                 </div>
               </div>
 
@@ -628,13 +489,7 @@ export default function Register() {
                 <Label htmlFor="street">
                   Endereço (Rua) <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="street"
-                  placeholder="Nome da rua"
-                  value={form.street}
-                  onChange={(e) => setForm({ ...form, street: e.target.value })}
-                  required
-                />
+                <Input id="street" placeholder="Nome da rua" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} required />
               </div>
 
               <div className="grid grid-cols-3 gap-3 mt-3">
@@ -642,25 +497,13 @@ export default function Register() {
                   <Label htmlFor="number">
                     Número <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="number"
-                    placeholder="Nº"
-                    value={form.number}
-                    onChange={(e) => setForm({ ...form, number: e.target.value })}
-                    required
-                  />
+                  <Input id="number" placeholder="Nº" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} required />
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="neighborhood">
                     Bairro <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="neighborhood"
-                    placeholder="Bairro"
-                    value={form.neighborhood}
-                    onChange={(e) => setForm({ ...form, neighborhood: e.target.value })}
-                    required
-                  />
+                  <Input id="neighborhood" placeholder="Bairro" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} required />
                 </div>
               </div>
             </div>
@@ -671,19 +514,8 @@ export default function Register() {
               <Label>
                 Declaração de matrícula <span className="text-destructive">*</span>
               </Label>
-              <input
-                ref={docInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleDoc}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => docInputRef.current?.click()}
-                className="w-full justify-start"
-              >
+              <input ref={docInputRef} type="file" accept="image/*,application/pdf" onChange={handleDoc} className="hidden" />
+              <Button type="button" variant="outline" onClick={() => docInputRef.current?.click()} className="w-full justify-start">
                 <FileText className="w-4 h-4 mr-2" />
                 {docName ? <span className="truncate">{docName}</span> : "Enviar comprovante"}
               </Button>
@@ -695,19 +527,8 @@ export default function Register() {
               <Label>
                 CNH digital <span className="text-destructive">*</span>
               </Label>
-              <input
-                ref={cnhInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleCnh}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => cnhInputRef.current?.click()}
-                className="w-full justify-start"
-              >
+              <input ref={cnhInputRef} type="file" accept="image/*,application/pdf" onChange={handleCnh} className="hidden" />
+              <Button type="button" variant="outline" onClick={() => cnhInputRef.current?.click()} className="w-full justify-start">
                 <FileText className="w-4 h-4 mr-2" />
                 {cnhName ? <span className="truncate">{cnhName}</span> : "Enviar CNH digital"}
               </Button>
@@ -719,14 +540,7 @@ export default function Register() {
             <Label htmlFor="password">
               Senha <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="password"
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-              minLength={6}
-            />
+            <Input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
           </div>
 
           <Button type="submit" className="w-full">
@@ -735,11 +549,7 @@ export default function Register() {
 
           <p className="text-xs text-center text-muted-foreground">
             Já tem conta?{" "}
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="text-primary hover:underline font-medium"
-            >
+            <button type="button" onClick={() => navigate("/login")} className="text-primary hover:underline font-medium">
               Entrar
             </button>
           </p>
