@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
-import { students, confirmations, weeklySchedules } from "@/data/mockData";
+import { confirmations, students, weeklySchedules } from "@/data/mockData";
 
 type Trip = "going" | "return";
 type Filter = "all" | "going" | "missing" | "pending";
@@ -35,9 +35,9 @@ export default function DriverStudents() {
   const [query, setQuery] = useState("");
   const [notificationTarget, setNotificationTarget] = useState<"all" | string | null>(null);
   const [message, setMessage] = useState("Olá! Sua confirmação de presença ainda está pendente. Pode confirmar sua viagem?");
+  const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
 
   const today = dayNames[new Date().getDay()];
-  // Mock: motorista d1, busca universidades que ele dirige hoje
   const todayUniversities = useMemo(
     () =>
       Array.from(
@@ -49,19 +49,21 @@ export default function DriverStudents() {
       ),
     [today],
   );
-  // Fallback: se não tiver hoje, usa UFMG
   const targetUniversities = todayUniversities.length > 0 ? todayUniversities : ["UFMG"];
 
   const rows = useMemo(() => {
     const myStudents = students.filter((s) => targetUniversities.includes(s.institution));
     return myStudents.map((s) => {
       const conf = confirmations.find((c) => c.studentId === s.id);
-      const status = conf
-        ? statusFromConfirmation(conf, trip)
-        : ("pending" as const);
-      return { student: s, status };
+      const status = conf ? statusFromConfirmation(conf, trip) : ("pending" as const);
+      const notificationStatus = status === "pending"
+        ? notifiedIds.includes(`${trip}-${s.id}`)
+          ? "notified"
+          : "pending_notification"
+        : null;
+      return { student: s, status, notificationStatus };
     });
-  }, [targetUniversities, trip]);
+  }, [targetUniversities, trip, notifiedIds]);
 
   const filtered = rows.filter((r) => {
     if (filter !== "all" && r.status !== filter) return false;
@@ -104,6 +106,12 @@ export default function DriverStudents() {
       return;
     }
 
+    if (notificationTarget === "all") {
+      setNotifiedIds((current) => Array.from(new Set([...current, ...pendingRows.map((row) => `${trip}-${row.student.id}`)])));
+    } else if (notificationTarget) {
+      setNotifiedIds((current) => Array.from(new Set([...current, `${trip}-${notificationTarget}`])));
+    }
+
     toast({
       title: "Notificação enviada",
       description:
@@ -127,7 +135,6 @@ export default function DriverStudents() {
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total", value: counts.all, color: "text-foreground", icon: Users },
@@ -154,7 +161,6 @@ export default function DriverStudents() {
         })}
       </div>
 
-      {/* Trip switcher + search */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <Tabs value={trip} onValueChange={(v) => setTrip(v as Trip)}>
           <TabsList>
@@ -174,7 +180,6 @@ export default function DriverStudents() {
         </div>
       </div>
 
-      {/* Filter chips */}
       <div className="flex gap-2 flex-wrap">
         {([
           { v: "all", l: "Todos" },
@@ -204,7 +209,6 @@ export default function DriverStudents() {
         </div>
       )}
 
-      {/* List */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
@@ -219,8 +223,8 @@ export default function DriverStudents() {
                 r.status === "going"
                   ? "text-success"
                   : r.status === "missing"
-                  ? "text-destructive"
-                  : "text-warning";
+                    ? "text-destructive"
+                    : "text-warning";
               const statusLabel =
                 r.status === "going" ? "Confirmado" : r.status === "missing" ? "Ausente" : "Pendente";
               return (
@@ -240,6 +244,11 @@ export default function DriverStudents() {
                       <Badge variant="secondary" className="text-[10px] py-0">
                         {r.student.institution}
                       </Badge>
+                      {r.notificationStatus && (
+                        <Badge variant={r.notificationStatus === "notified" ? "default" : "secondary"} className="text-[10px] py-0">
+                          {r.notificationStatus === "notified" ? "Notificado" : "Pendente de notificação"}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{r.student.course}</p>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -282,7 +291,7 @@ export default function DriverStudents() {
             <DialogTitle>Enviar notificação</DialogTitle>
             <DialogDescription>
               {notificationTarget === "all"
-                ? `Envie um lembrete para todos os alunos que ainda estão pendentes na lista atual.`
+                ? "Envie um lembrete para todos os alunos que ainda estão pendentes na lista atual."
                 : `Envie um lembrete para ${notificationLabel} confirmar a viagem.`}
             </DialogDescription>
           </DialogHeader>
