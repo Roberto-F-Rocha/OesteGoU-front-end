@@ -207,6 +207,7 @@ export default function Register({ role }: RegisterProps) {
           phone: form.phone,
           birthDate: form.birthDate,
           photo,
+          password: form.password,
         },
       });
       toast({ title: "Administrador cadastrado!", description: `Você é o responsável por ${form.adminCity} - ${form.adminState}.` });
