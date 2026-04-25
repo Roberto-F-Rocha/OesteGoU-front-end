@@ -46,6 +46,7 @@ import {
   updateSchedule,
 } from "@/data/registrationsStore";
 import { getInstitutionDefaults, searchInstitutions } from "@/data/institutionDefaults";
+import { defaultShifts, getShift, getShiftByTimes, type ShiftKey } from "@/data/shifts";
 import { cn } from "@/lib/utils";
 
 const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -54,9 +55,8 @@ const emptyForm = {
   id: "",
   title: "",
   dayOfWeek: "Segunda",
-  departureTime: "06:00",
+  shift: "manha" as ShiftKey,
   departureLocation: "",
-  returnTime: "18:00",
   returnLocation: "",
 };
 
