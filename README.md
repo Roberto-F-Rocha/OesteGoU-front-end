@@ -207,5 +207,11 @@ Em desenvolvimento ativo
 
 ## Autor
 
-Sistema desenvolvido pela Empresa Lateral-End LTDA
+## Autor
 
+Desenvolvido por **Lateral-End LTDA**
+
+© 2026 Lateral-End LTDA. Todos os direitos reservados.
+
+Este software e todo o seu conteúdo são protegidos por leis de direitos autorais e propriedade intelectual.  
+É proibida a cópia, distribuição, modificação ou uso não autorizado deste sistema, no todo ou em parte, sem consentimento formal da empresa responsável.
