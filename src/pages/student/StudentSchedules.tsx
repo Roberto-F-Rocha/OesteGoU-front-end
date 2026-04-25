@@ -45,7 +45,12 @@ import {
   removeSchedule,
   updateSchedule,
 } from "@/data/registrationsStore";
-import { getInstitutionDefaults, searchInstitutions } from "@/data/institutionDefaults";
+import { searchInstitutions } from "@/data/institutionDefaults";
+import {
+  getDefaultPickupPoint,
+  listPickupPoints,
+  type PickupPoint,
+} from "@/data/pickupPointsStore";
 import { defaultShifts, getShift, getShiftByTimes, type ShiftKey } from "@/data/shifts";
 import { cn } from "@/lib/utils";
 
