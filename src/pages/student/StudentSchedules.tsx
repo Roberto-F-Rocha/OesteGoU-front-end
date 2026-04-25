@@ -101,6 +101,17 @@ export default function StudentSchedules() {
     [institutionQuery],
   );
 
+  // Pontos de embarque/desembarque cadastrados pelo admin
+  // para (cidade + universidade selecionada).
+  const departurePoints = useMemo<PickupPoint[]>(
+    () => (form.title ? listPickupPoints(city, form.title, "departure") : []),
+    [city, form.title, version],
+  );
+  const returnPoints = useMemo<PickupPoint[]>(
+    () => (form.title ? listPickupPoints(city, form.title, "return") : []),
+    [city, form.title, version],
+  );
+
   // Fecha o dropdown ao clicar fora
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
