@@ -138,32 +138,25 @@ export default function StudentSchedules() {
       return;
     }
 
+    const shift = getShift(form.shift);
     const payload = {
       title: form.title,
       dayOfWeek: form.dayOfWeek,
-      departureTime: form.departureTime,
+      departureTime: shift.departureTime,
       departureLocation: form.departureLocation,
-      returnTime: form.returnTime,
+      returnTime: shift.returnTime,
       returnLocation: form.returnLocation,
-      // O aluno NÃO escolhe motorista. Se editar, mantém o motorista atual; se criar, fica sem motorista.
-      driverId: undefined as string | null | undefined,
     };
 
     if (form.id) {
       // Não enviar driverId em update para preservar o que o admin alocou
-      const { driverId: _ignored, ...rest } = payload;
-      updateSchedule(form.id, rest);
+      updateSchedule(form.id, payload);
       toast({ title: "Horário atualizado com sucesso" });
     } else {
       addSchedule({
         city,
         state,
-        title: payload.title,
-        dayOfWeek: payload.dayOfWeek,
-        departureTime: payload.departureTime,
-        departureLocation: payload.departureLocation,
-        returnTime: payload.returnTime,
-        returnLocation: payload.returnLocation,
+        ...payload,
         driverId: null,
       });
       toast({
@@ -184,9 +177,8 @@ export default function StudentSchedules() {
       id: s.id,
       title: s.title,
       dayOfWeek: s.dayOfWeek,
-      departureTime: s.departureTime,
+      shift: getShiftByTimes(s.departureTime, s.returnTime) ?? "manha",
       departureLocation: s.departureLocation,
-      returnTime: s.returnTime,
       returnLocation: s.returnLocation,
     });
     setInstitutionQuery(s.title);
