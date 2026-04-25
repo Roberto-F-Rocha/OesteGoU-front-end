@@ -458,23 +458,55 @@ export default function StudentSchedules() {
               </div>
             </div>
 
-            {/* Ida */}
-            <div className="rounded-lg border border-border p-3 space-y-3 bg-background/40">
-              <div className="flex items-center gap-1.5 text-sm font-heading font-semibold text-foreground">
-                <ArrowLeftRight className="w-4 h-4 text-primary" /> Ida
+            {/* Turno (define horários automaticamente) */}
+            <div className="space-y-2">
+              <Label>Turno</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {defaultShifts.map((shift) => {
+                  const selected = form.shift === shift.key;
+                  return (
+                    <button
+                      key={shift.key}
+                      type="button"
+                      onClick={() => setForm((s) => ({ ...s, shift: shift.key }))}
+                      className={cn(
+                        "rounded-lg border p-3 text-left transition-all",
+                        selected
+                          ? "bg-primary/10 border-primary ring-2 ring-primary/20"
+                          : "bg-background border-border hover:border-primary/40",
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "font-heading font-semibold text-sm",
+                          selected ? "text-primary" : "text-foreground",
+                        )}
+                      >
+                        {shift.label}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                        {shift.description}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs">Horário</Label>
-                  <Input
-                    type="time"
-                    value={form.departureTime}
-                    onChange={(e) => setForm((s) => ({ ...s, departureTime: e.target.value }))}
-                    required
-                  />
+              <p className="text-xs text-muted-foreground">
+                Os horários de ida e volta são pré-definidos pelo administrador.
+              </p>
+            </div>
+
+            {/* Preview Ida/Volta + Local */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+                  <ArrowLeftRight className="w-3 h-3 text-primary" /> Ida
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Local de saída</Label>
+                <p className="font-heading font-bold text-foreground text-lg">
+                  {getShift(form.shift).departureTime}
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Local de saída</Label>
                   <Input
                     value={form.departureLocation}
                     onChange={(e) =>
@@ -485,25 +517,15 @@ export default function StudentSchedules() {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Volta */}
-            <div className="rounded-lg border border-border p-3 space-y-3 bg-background/40">
-              <div className="flex items-center gap-1.5 text-sm font-heading font-semibold text-foreground">
-                <ArrowLeftRight className="w-4 h-4 text-accent rotate-180" /> Volta
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs">Horário</Label>
-                  <Input
-                    type="time"
-                    value={form.returnTime}
-                    onChange={(e) => setForm((s) => ({ ...s, returnTime: e.target.value }))}
-                    required
-                  />
+              <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+                  <ArrowLeftRight className="w-3 h-3 text-accent rotate-180" /> Volta
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Local de volta</Label>
+                <p className="font-heading font-bold text-foreground text-lg">
+                  {getShift(form.shift).returnTime}
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Local de volta</Label>
                   <Input
                     value={form.returnLocation}
                     onChange={(e) => setForm((s) => ({ ...s, returnLocation: e.target.value }))}
