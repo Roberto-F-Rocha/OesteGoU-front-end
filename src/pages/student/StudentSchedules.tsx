@@ -526,7 +526,7 @@ export default function StudentSchedules() {
               </p>
             </div>
 
-            {/* Preview Ida/Volta + Local */}
+            {/* Preview Ida/Volta + Ponto de embarque/desembarque */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
                 <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
@@ -535,17 +535,42 @@ export default function StudentSchedules() {
                 <p className="font-heading font-bold text-foreground text-lg">
                   {getShift(form.shift).departureTime}
                 </p>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Local de saída</Label>
-                  <Input
-                    value={form.departureLocation}
-                    onChange={(e) =>
-                      setForm((s) => ({ ...s, departureLocation: e.target.value }))
-                    }
-                    placeholder="Ex.: Terminal Central"
-                    required
-                  />
-                </div>
+                {form.title ? (
+                  departurePoints.length > 1 ? (
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Escolha o ponto de saída
+                      </Label>
+                      <select
+                        value={form.departureLocation}
+                        onChange={(e) =>
+                          setForm((s) => ({ ...s, departureLocation: e.target.value }))
+                        }
+                        required
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        {departurePoints.map((p) => (
+                          <option key={p.id} value={p.label}>
+                            {p.label}
+                            {p.isDefault ? " (padrão)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+                      <span className="line-clamp-2">
+                        {form.departureLocation || "Ponto não cadastrado"}
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Selecione uma universidade para ver os pontos.
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
                 <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
@@ -554,15 +579,42 @@ export default function StudentSchedules() {
                 <p className="font-heading font-bold text-foreground text-lg">
                   {getShift(form.shift).returnTime}
                 </p>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Local de volta</Label>
-                  <Input
-                    value={form.returnLocation}
-                    onChange={(e) => setForm((s) => ({ ...s, returnLocation: e.target.value }))}
-                    placeholder="Ex.: Universidade - Portaria"
-                    required
-                  />
-                </div>
+                {form.title ? (
+                  returnPoints.length > 1 ? (
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Escolha o ponto de volta
+                      </Label>
+                      <select
+                        value={form.returnLocation}
+                        onChange={(e) =>
+                          setForm((s) => ({ ...s, returnLocation: e.target.value }))
+                        }
+                        required
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        {returnPoints.map((p) => (
+                          <option key={p.id} value={p.label}>
+                            {p.label}
+                            {p.isDefault ? " (padrão)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
+                      <span className="line-clamp-2">
+                        {form.returnLocation || "Ponto não cadastrado"}
+                      </span>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Selecione uma universidade para ver os pontos.
+                  </p>
+                )}
               </div>
             </div>
 
