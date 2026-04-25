@@ -121,12 +121,26 @@ export default function StudentSchedules() {
   };
 
   const applyInstitution = (name: string) => {
-    const defaults = getInstitutionDefaults(name);
+    // Define a universidade e auto-preenche os pontos de saída/volta
+    // a partir do que o admin cadastrou (cidade + universidade).
+    // - 1 ponto cadastrado => usa direto (oculto na UI).
+    // - 2+ pontos => limpa para o aluno escolher.
+    const departureList = listPickupPoints(city, name, "departure");
+    const returnList = listPickupPoints(city, name, "return");
+    const dep =
+      departureList.length === 1
+        ? departureList[0].label
+        : getDefaultPickupPoint(city, name, "departure")?.label ?? "";
+    const ret =
+      returnList.length === 1
+        ? returnList[0].label
+        : getDefaultPickupPoint(city, name, "return")?.label ?? "";
+
     setForm((s) => ({
       ...s,
       title: name,
-      departureLocation: s.departureLocation || defaults.departureLocation,
-      returnLocation: s.returnLocation || defaults.returnLocation,
+      departureLocation: departureList.length > 1 ? "" : dep,
+      returnLocation: returnList.length > 1 ? "" : ret,
     }));
     setInstitutionQuery(name);
     setShowInstitutionList(false);
