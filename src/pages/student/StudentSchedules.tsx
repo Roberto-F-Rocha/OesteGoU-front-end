@@ -169,13 +169,31 @@ export default function StudentSchedules() {
     }
 
     const shift = getShift(form.shift);
+
+    // Auto-resolve locais quando há apenas 1 ponto cadastrado.
+    const departureLocation =
+      departurePoints.length === 1
+        ? departurePoints[0].label
+        : form.departureLocation;
+    const returnLocation =
+      returnPoints.length === 1 ? returnPoints[0].label : form.returnLocation;
+
+    if (!departureLocation || !returnLocation) {
+      toast({
+        title: "Selecione os pontos",
+        description: "Escolha o ponto de saída e de volta para esta universidade.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload = {
       title: form.title,
       dayOfWeek: form.dayOfWeek,
       departureTime: shift.departureTime,
-      departureLocation: form.departureLocation,
+      departureLocation,
       returnTime: shift.returnTime,
-      returnLocation: form.returnLocation,
+      returnLocation,
     };
 
     if (form.id) {
