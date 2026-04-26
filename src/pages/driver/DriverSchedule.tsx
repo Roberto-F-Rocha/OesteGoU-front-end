@@ -48,10 +48,64 @@ export default function DriverSchedule() {
   const driverName = user?.name?.split(" ")[0] ?? "Motorista";
   const city = user?.city ?? "";
 
-  const mySchedules = useMemo(
+  const realSchedules = useMemo(
     () => getSchedulesByCity(city).filter((s) => s.driverId === driverId),
     [city, driverId],
   );
+
+  const exampleSchedules = useMemo(
+    () => [
+      {
+        id: "ex-1",
+        title: "UFERSA - Pau dos Ferros",
+        dayOfWeek: "Segunda",
+        departureTime: "05:40",
+        departureLocation: "Praça Central - Riacho da Cruz",
+        returnTime: "11:50",
+        returnLocation: "UFERSA - Portaria Principal",
+      },
+      {
+        id: "ex-2",
+        title: "UERN - Pau dos Ferros",
+        dayOfWeek: "Terça",
+        departureTime: "11:40",
+        departureLocation: "Praça Central - Riacho da Cruz",
+        returnTime: "17:50",
+        returnLocation: "UERN - Entrada Principal",
+      },
+      {
+        id: "ex-3",
+        title: "IFRN - Pau dos Ferros",
+        dayOfWeek: "Quarta",
+        departureTime: "17:40",
+        departureLocation: "Praça Central - Riacho da Cruz",
+        returnTime: "21:50",
+        returnLocation: "IFRN - Campus Pau dos Ferros",
+      },
+      {
+        id: "ex-4",
+        title: "UFERSA - Pau dos Ferros",
+        dayOfWeek: "Quinta",
+        departureTime: "05:40",
+        departureLocation: "Praça Central - Riacho da Cruz",
+        returnTime: "11:50",
+        returnLocation: "UFERSA - Portaria Principal",
+      },
+      {
+        id: "ex-5",
+        title: "UERN - Pau dos Ferros",
+        dayOfWeek: "Sexta",
+        departureTime: "17:40",
+        departureLocation: "Praça Central - Riacho da Cruz",
+        returnTime: "21:50",
+        returnLocation: "UERN - Entrada Principal",
+      },
+    ],
+    [],
+  );
+
+  const isExample = realSchedules.length === 0;
+  const mySchedules = isExample ? exampleSchedules : realSchedules;
 
   const grouped = WEEK_DAYS.map((day) => ({
     day,
@@ -66,6 +120,15 @@ export default function DriverSchedule() {
           Sua escala semanal definida pela administração de {city || "sua cidade"}.
         </p>
       </div>
+
+      {isExample && (
+        <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
+          <span className="font-heading font-semibold text-primary">Visualização de exemplo:</span>{" "}
+          <span className="text-muted-foreground">
+            estas rotas são fictícias, apenas para demonstração. Quando o administrador atribuir uma escala real, ela aparecerá aqui automaticamente.
+          </span>
+        </div>
+      )}
 
       {grouped.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
