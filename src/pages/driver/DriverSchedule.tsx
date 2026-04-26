@@ -109,7 +109,23 @@ export default function DriverSchedule() {
   const isExample = realSchedules.length === 0;
   const mySchedules = isExample ? exampleSchedules : realSchedules;
 
+  const [search, setSearch] = useState("");
+  const [filterDay, setFilterDay] = useState<string>("Todos");
+
+  const filteredSchedules = useMemo(() => {
+    return mySchedules.filter((s) => {
+      const matchSearch = search.trim()
+        ? s.title.toLowerCase().includes(search.toLowerCase())
+        : true;
+      const matchDay = filterDay === "Todos" ? true : s.dayOfWeek === filterDay;
+      return matchSearch && matchDay;
+    });
+  }, [mySchedules, search, filterDay]);
+
   const grouped = WEEK_DAYS.map((day) => ({
+    day,
+    items: filteredSchedules.filter((s) => s.dayOfWeek === day),
+  })).filter((g) => g.items.length > 0);
     day,
     items: mySchedules.filter((s) => s.dayOfWeek === day),
   })).filter((g) => g.items.length > 0);
