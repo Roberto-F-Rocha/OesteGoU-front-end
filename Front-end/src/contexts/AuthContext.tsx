@@ -1,5 +1,11 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-import { getAllAdmins, getAllUsers } from "@/data/registrationsStore";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { api } from "@/lib/api";
 
 export type UserRole = "admin" | "student" | "driver";
 
@@ -15,81 +21,104 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: UserRole) => boolean;
-  logout: () => void;
+  loading: boolean;
+  authLoading: boolean;
   isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const mockUsers: Record<string, User & { password: string }> = {
-  "admin@altobus.com": { id: "1", name: "Administrador", email: "admin@altobus.com", role: "admin", password: "admin123", city: "Riacho da Cruz", state: "RN" },
-  "aluno@altobus.com": { id: "2", name: "João Silva", email: "aluno@altobus.com", role: "student", password: "aluno123", city: "Riacho da Cruz", state: "RN" },
-  "motorista@altobus.com": { id: "3", name: "Carlos Oliveira", email: "motorista@altobus.com", role: "driver", password: "motorista123", city: "Riacho da Cruz", state: "RN" },
-};
+// storage keys
+const ACCESS_TOKEN_KEY = "accessToken";
+const REFRESH_TOKEN_KEY = "refreshToken";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
-  const login = (email: string, password: string, role: UserRole): boolean => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const found = mockUsers[normalizedEmail];
-    if (found && found.password === password && found.role === role) {
-      const { password: _, ...userData } = found;
-      setUser(userData);
-      return true;
-    }
+  const isAuthenticated = !!user && !loading;
 
-    if (role === "admin") {
-      const admin = getAllAdmins().find(
-        (item) => item.responsible.email.toLowerCase() === normalizedEmail && item.responsible.password === password,
-      );
-      if (admin) {
-        setUser({
-          id: admin.id,
-          name: admin.responsible.name,
-          email: admin.responsible.email,
-          role: "admin",
-          photo: admin.responsible.photo ?? undefined,
-          city: admin.city,
-          state: admin.state,
-        });
-        return true;
+  // sessão inicial
+  useEffect(() => {
+    async function loadSession() {
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+
+      if (!token) {
+        setLoading(false);
+        return;
       }
-      return false;
+
+      try {
+        const response = await api.get("/auth/me");
+        setUser(response.data);
+      } catch {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const storedUser = getAllUsers().find(
-      (item) => item.email.toLowerCase() === normalizedEmail && item.password === password && item.role === role,
-    );
+    loadSession();
+  }, []);
 
-    if (storedUser) {
-      setUser({
-        id: storedUser.id,
-        name: storedUser.name,
-        email: storedUser.email,
-        role: storedUser.role,
-        photo: storedUser.photo ?? undefined,
-        city: storedUser.address.city,
-        state: storedUser.address.state,
+  // LOGIN
+  async function login(email: string, password: string) {
+    try {
+      setAuthLoading(true);
+
+      const response = await api.post("/auth/login", {
+        email,
+        senha: password,
       });
-      return true;
+
+      const { accessToken, refreshToken, user } = response.data;
+
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+
+      setUser(user);
+    } finally {
+      setAuthLoading(false);
     }
+  }
 
-    return false;
-  };
+  // LOGOUT
+  function logout() {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  const logout = () => setUser(null);
+    setUser(null);
+    window.location.href = "/login";
+  }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        authLoading,
+        isAuthenticated,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
+// hook seguro
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return ctx;
 }

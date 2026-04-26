@@ -1,28 +1,42 @@
 import jwt from "jsonwebtoken";
+import { prisma } from "../lib/prisma";
 
-export function auth(req, res, next) {
+export async function auth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
     return res.status(401).json({ error: "Token não enviado" });
   }
 
-  const parts = authHeader.split(" ");
+  const [, token] = authHeader.split(" ");
 
-  if (parts.length !== 2) {
+  if (!token) {
     return res.status(401).json({ error: "Token mal formatado" });
   }
 
-  const token = parts[1];
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) throw new Error("JWT_ACCESS_SECRET não definido");
 
-    req.user = decoded;
+    const decoded = jwt.verify(token, secret) as any;
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: "Usuário inválido" });
+    }
+
+    req.user = {
+      id: user.id,
+      name: user.nome,
+      email: user.email,
+      role: user.role,
+    };
 
     return next();
-  } catch (err) {
-    console.error("ERRO JWT:", err);
-    return res.status(401).json({ error: "Token inválido" });
+  } catch {
+    return res.status(401).json({ error: "Token inválido ou expirado" });
   }
 }
