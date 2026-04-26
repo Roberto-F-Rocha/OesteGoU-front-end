@@ -207,11 +207,14 @@ Em desenvolvimento ativo
 
 ## Autor
 
-## Autor
+Desenvolvido por: Roberto Fernandes Rocha  
+Empresa: 63.176.182 ROBERTO FERNANDES ROCHA (MEI)  
+CNPJ: 63.176.182/0001-76  
 
-Desenvolvido por **Lateral-End LTDA**
+Co-autor: Enzo Morgan Santos de Melo  
 
-© 2026 Lateral-End LTDA. Todos os direitos reservados.
+© 2026 Todos os direitos reservados.
 
-Este software e todo o seu conteúdo são protegidos por leis de direitos autorais e propriedade intelectual.  
-É proibida a cópia, distribuição, modificação ou uso não autorizado deste sistema, no todo ou em parte, sem consentimento formal da empresa responsável.
+Este sistema é um software proprietário e confidencial.
+
+Consulte o arquivo LICENSE para detalhes sobre os direitos de uso e restrições.
