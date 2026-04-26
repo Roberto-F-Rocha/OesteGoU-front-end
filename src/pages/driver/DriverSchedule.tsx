@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bus, Clock, MapPin, Sun, Sunset, Moon, CalendarDays } from "lucide-react";
+import { Bus, Clock, MapPin, Sun, Sunset, Moon, CalendarDays, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSchedulesByCity } from "@/data/registrationsStore";
+import { cn } from "@/lib/utils";
 
 const WEEK_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
