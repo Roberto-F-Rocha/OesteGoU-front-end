@@ -145,12 +145,48 @@ export default function DriverSchedule() {
         </div>
       )}
 
+      {/* Filtros estilo painel do aluno */}
+      {mySchedules.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-3 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por universidade..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {["Todos", ...WEEK_DAYS].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setFilterDay(d)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors border",
+                  filterDay === d
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+                )}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {grouped.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center">
+        <div className="bg-card border border-dashed border-border rounded-xl p-10 text-center">
           <CalendarDays className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <p className="font-heading font-semibold text-foreground">Nenhuma escala atribuída</p>
+          <p className="font-heading font-semibold text-foreground">
+            {mySchedules.length === 0 ? "Nenhuma escala atribuída" : "Nenhum resultado"}
+          </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Você ainda não foi escalado em nenhuma rota. Aguarde a definição do administrador.
+            {mySchedules.length === 0
+              ? "Você ainda não foi escalado em nenhuma rota. Aguarde a definição do administrador."
+              : "Tente ajustar a busca ou o filtro de dia."}
           </p>
         </div>
       ) : (
