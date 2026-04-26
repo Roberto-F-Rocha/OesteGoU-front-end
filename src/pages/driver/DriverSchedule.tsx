@@ -126,9 +126,6 @@ export default function DriverSchedule() {
     day,
     items: filteredSchedules.filter((s) => s.dayOfWeek === day),
   })).filter((g) => g.items.length > 0);
-    day,
-    items: mySchedules.filter((s) => s.dayOfWeek === day),
-  })).filter((g) => g.items.length > 0);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
