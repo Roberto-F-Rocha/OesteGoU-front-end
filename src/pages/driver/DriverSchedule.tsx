@@ -121,6 +121,15 @@ export default function DriverSchedule() {
         </p>
       </div>
 
+      {isExample && (
+        <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
+          <span className="font-heading font-semibold text-primary">Visualização de exemplo:</span>{" "}
+          <span className="text-muted-foreground">
+            estas rotas são fictícias, apenas para demonstração. Quando o administrador atribuir uma escala real, ela aparecerá aqui automaticamente.
+          </span>
+        </div>
+      )}
+
       {grouped.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
           <CalendarDays className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
