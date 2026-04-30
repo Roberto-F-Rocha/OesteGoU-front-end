@@ -163,6 +163,7 @@ Senha temporária: ${credentials.password}`);
               <TableHead>Motorista</TableHead>
               <TableHead>Contato</TableHead>
               <TableHead>Rota alocada</TableHead>
+              <TableHead>Ônibus</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
