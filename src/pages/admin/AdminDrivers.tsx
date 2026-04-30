@@ -199,6 +199,19 @@ Senha temporária: ${credentials.password}`);
                     )}
                   </TableCell>
                   <TableCell>
+                    {(() => {
+                      const driverBuses = buses.filter((b) => b.assignedDriverId === driver.id);
+                      if (driverBuses.length === 0) return <Badge variant="secondary">Nenhum</Badge>;
+                      return (
+                        <div className="flex flex-wrap gap-1">
+                          {driverBuses.map((b) => (
+                            <Badge key={b.id} variant="outline" className="font-mono text-xs">{b.plate}</Badge>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={driver.status === "active" ? "default" : "secondary"}>{driver.status === "active" ? "Ativo" : "Pendente"}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
