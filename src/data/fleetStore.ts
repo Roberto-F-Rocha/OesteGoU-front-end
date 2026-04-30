@@ -16,6 +16,7 @@ export interface Bus {
   year: number;
   status: BusStatus;
   notes?: string;
+  assignedDriverId?: string | null;
   createdAt: string;
 }
 
