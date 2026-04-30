@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Camera, CheckCircle2, Copy, FileText, Mail, Pencil, Plus, Trash2, Truck, Upload, X } from "lucide-react";
+import { Bus, Camera, CheckCircle2, Copy, FileText, Mail, Pencil, Plus, Trash2, Truck, Upload, X } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { addDriverByAdmin, generateTempPassword, getDriversByCity, getSchedulesByCity, removeUser, updateUser } from "@/data/registrationsStore";
+import { assignDriverToBuses, listBusesByCity, listBusesByDriver } from "@/data/fleetStore";
 
 interface Props {
   adminCity: string;
@@ -21,6 +23,7 @@ const emptyForm = {
   phone: "",
   birthDate: "",
   assignedScheduleId: "",
+  busIds: [] as string[],
 };
 
 export default function AdminDrivers({ adminCity, adminState }: Props) {
