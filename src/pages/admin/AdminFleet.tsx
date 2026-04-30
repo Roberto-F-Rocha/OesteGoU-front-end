@@ -240,20 +240,16 @@ export default function AdminFleet({ adminCity, adminState }: Props) {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2">
-            <Bus className="w-6 h-6 text-primary" /> Frota
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie os veículos e os chamados de manutenção de {adminCity}.
-          </p>
-        </div>
-        <Button onClick={openCreate} size="lg" className="gap-2">
-          <Plus className="w-4 h-4" /> Novo transporte
-        </Button>
-      </div>
+      <PageHeader
+        title="Frota"
+        description={`Gerencie veículos e chamados de manutenção de ${adminCity}.`}
+        icon={Bus}
+        actions={
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Novo transporte
+          </Button>
+        }
+      />
 
       {/* Resumo */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
