@@ -150,24 +150,23 @@ export default function AdminStudents({ adminCity, adminState }: Props) {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-primary" /> Alunos
-          </h1>
-          <p className="text-sm text-muted-foreground">CRUD completo dos alunos de {adminCity}.</p>
-        </div>
-        <div className="flex gap-2">
-          {pendingRows.length > 0 && (
-            <Button variant="outline" onClick={() => openNotification("all")}>
-              <BellRing className="w-4 h-4" /> Notificar pendentes
+      <PageHeader
+        title="Alunos"
+        description={`CRUD completo dos alunos de ${adminCity}.`}
+        icon={GraduationCap}
+        actions={
+          <>
+            {pendingRows.length > 0 && (
+              <Button variant="outline" onClick={() => openNotification("all")}>
+                <BellRing className="w-4 h-4 mr-1.5" /> Notificar pendentes
+              </Button>
+            )}
+            <Button onClick={() => { resetForm(); setOpen(true); }}>
+              <Plus className="w-4 h-4 mr-1.5" /> Novo aluno
             </Button>
-          )}
-          <Button onClick={() => { resetForm(); setOpen(true); }}>
-            <Plus className="w-4 h-4" /> Novo aluno
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
