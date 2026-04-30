@@ -16,6 +16,7 @@ export interface Bus {
   year: number;
   status: BusStatus;
   notes?: string;
+  assignedDriverId?: string | null;
   createdAt: string;
 }
 
@@ -217,4 +218,22 @@ export function removeTicket(id: string): void {
 export function countOpenTicketsByCity(city: string): number {
   bootstrap();
   return listTicketsByCity(city).filter((t) => t.status !== "resolved").length;
+}
+
+export function listBusesByDriver(driverId: string): Bus[] {
+  bootstrap();
+  return buses.filter((b) => b.assignedDriverId === driverId);
+}
+
+export function assignDriverToBuses(driverId: string, busIds: string[]): void {
+  bootstrap();
+  for (const b of buses) {
+    if (b.assignedDriverId === driverId && !busIds.includes(b.id)) {
+      b.assignedDriverId = null;
+    }
+  }
+  for (const id of busIds) {
+    const b = buses.find((x) => x.id === id);
+    if (b) b.assignedDriverId = driverId;
+  }
 }

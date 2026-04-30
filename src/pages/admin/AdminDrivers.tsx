@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Camera, CheckCircle2, Copy, FileText, Mail, Pencil, Plus, Trash2, Truck, Upload, X } from "lucide-react";
+import { Bus, Camera, CheckCircle2, Copy, FileText, Mail, Pencil, Plus, Trash2, Truck, Upload, X } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { addDriverByAdmin, generateTempPassword, getDriversByCity, getSchedulesByCity, removeUser, updateUser } from "@/data/registrationsStore";
+import { assignDriverToBuses, listBusesByCity, listBusesByDriver } from "@/data/fleetStore";
 
 interface Props {
   adminCity: string;
@@ -21,6 +23,7 @@ const emptyForm = {
   phone: "",
   birthDate: "",
   assignedScheduleId: "",
+  busIds: [] as string[],
 };
 
 export default function AdminDrivers({ adminCity, adminState }: Props) {
@@ -36,6 +39,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
 
   const drivers = useMemo(() => getDriversByCity(adminCity), [adminCity, version]);
   const schedules = useMemo(() => getSchedulesByCity(adminCity), [adminCity, version]);
+  const buses = useMemo(() => listBusesByCity(adminCity), [adminCity, version]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -53,6 +57,15 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
     reader.readAsDataURL(file);
   };
 
+  const toggleBus = (busId: string) => {
+    setForm((state) => ({
+      ...state,
+      busIds: state.busIds.includes(busId)
+        ? state.busIds.filter((id) => id !== busId)
+        : [...state.busIds, busId],
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.id && !cnhName) {
@@ -60,6 +73,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       return;
     }
 
+    let driverId = form.id;
     if (form.id) {
       updateUser(form.id, {
         name: form.name,
@@ -73,7 +87,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       toast({ title: "Motorista atualizado" });
     } else {
       const tempPassword = generateTempPassword();
-      addDriverByAdmin({
+      const created = addDriverByAdmin({
         name: form.name,
         email: form.email,
         phone: form.phone,
@@ -85,9 +99,12 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
         tempPassword,
         assignedScheduleId: form.assignedScheduleId || null,
       });
+      driverId = created.id;
       setCredentials({ email: form.email, password: tempPassword, name: form.name });
       toast({ title: "Motorista cadastrado" });
     }
+
+    if (driverId) assignDriverToBuses(driverId, form.busIds);
 
     setOpen(false);
     resetForm();
@@ -104,6 +121,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       phone: driver.phone,
       birthDate: driver.birthDate,
       assignedScheduleId: driver.assignedScheduleId ?? "",
+      busIds: listBusesByDriver(driver.id).map((b) => b.id),
     });
     setPhoto(driver.photo);
     setCnhName(driver.cnhName ?? null);
@@ -111,6 +129,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
   };
 
   const handleDelete = (driverId: string) => {
+    assignDriverToBuses(driverId, []);
     removeUser(driverId);
     toast({ title: "Motorista removido" });
     setVersion((value) => value + 1);
@@ -126,17 +145,16 @@ Senha temporária: ${credentials.password}`);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2">
-            <Truck className="w-6 h-6 text-primary" /> Motoristas
-          </h1>
-          <p className="text-sm text-muted-foreground">Cadastro, edição, remoção e alocação de rotas.</p>
-        </div>
-        <Button onClick={() => { resetForm(); setOpen(true); }}>
-          <Plus className="w-4 h-4" /> Novo motorista
-        </Button>
-      </div>
+      <PageHeader
+        title="Motoristas"
+        description="Cadastro, edição, alocação de rotas e vínculo com a frota."
+        icon={Truck}
+        actions={
+          <Button onClick={() => { resetForm(); setOpen(true); }}>
+            <Plus className="w-4 h-4 mr-1.5" /> Novo motorista
+          </Button>
+        }
+      />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
@@ -145,6 +163,7 @@ Senha temporária: ${credentials.password}`);
               <TableHead>Motorista</TableHead>
               <TableHead>Contato</TableHead>
               <TableHead>Rota alocada</TableHead>
+              <TableHead>Ônibus</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -178,6 +197,19 @@ Senha temporária: ${credentials.password}`);
                     ) : (
                       <Badge variant="secondary">Sem alocação</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const driverBuses = buses.filter((b) => b.assignedDriverId === driver.id);
+                      if (driverBuses.length === 0) return <Badge variant="secondary">Nenhum</Badge>;
+                      return (
+                        <div className="flex flex-wrap gap-1">
+                          {driverBuses.map((b) => (
+                            <Badge key={b.id} variant="outline" className="font-mono text-xs">{b.plate}</Badge>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Badge variant={driver.status === "active" ? "default" : "secondary"}>{driver.status === "active" ? "Ativo" : "Pendente"}</Badge>
@@ -262,6 +294,44 @@ Senha temporária: ${credentials.password}`);
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><Bus className="w-4 h-4" /> Ônibus vinculados</Label>
+              {buses.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum ônibus cadastrado. Adicione em <strong>/admin/frota</strong>.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto rounded-md border border-border p-2">
+                  {buses.map((b) => {
+                    const checked = form.busIds.includes(b.id);
+                    const usedBySomeoneElse = b.assignedDriverId && b.assignedDriverId !== form.id && !checked;
+                    return (
+                      <label
+                        key={b.id}
+                        className={`flex items-center gap-2 p-2 rounded-md border text-xs cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleBus(b.id)}
+                          className="accent-primary"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-mono font-semibold text-foreground">{b.plate}</p>
+                          <p className="text-muted-foreground truncate">
+                            {b.model}
+                            {usedBySomeoneElse ? " · em uso" : ""}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
