@@ -369,6 +369,15 @@ export default function AdminFleet({ adminCity, adminState }: Props) {
                 </div>
               </div>
 
+              {(() => {
+                const driver = drivers.find((d) => d.id === b.assignedDriverId);
+                return driver ? (
+                  <div className="text-xs rounded-md bg-primary/10 text-primary border border-primary/20 p-2">
+                    <span className="font-semibold">Motorista:</span> {driver.name}
+                  </div>
+                ) : null;
+              })()}
+
               {b.notes && (
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {b.notes}
