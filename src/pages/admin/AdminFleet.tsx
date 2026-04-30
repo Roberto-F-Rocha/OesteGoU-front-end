@@ -131,6 +131,7 @@ export default function AdminFleet({ adminCity, adminState }: Props) {
     () => listTicketsByCity(adminCity),
     [adminCity, version],
   );
+  const drivers = useMemo(() => getDriversByCity(adminCity), [adminCity, version]);
 
   const filteredBuses = useMemo(() => {
     return buses.filter((b) => {
