@@ -297,6 +297,44 @@ Senha temporária: ${credentials.password}`);
             </div>
 
             <div className="space-y-2">
+              <Label className="flex items-center gap-2"><Bus className="w-4 h-4" /> Ônibus vinculados</Label>
+              {buses.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum ônibus cadastrado. Adicione em <strong>/admin/frota</strong>.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto rounded-md border border-border p-2">
+                  {buses.map((b) => {
+                    const checked = form.busIds.includes(b.id);
+                    const usedBySomeoneElse = b.assignedDriverId && b.assignedDriverId !== form.id && !checked;
+                    return (
+                      <label
+                        key={b.id}
+                        className={`flex items-center gap-2 p-2 rounded-md border text-xs cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleBus(b.id)}
+                          className="accent-primary"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-mono font-semibold text-foreground">{b.plate}</p>
+                          <p className="text-muted-foreground truncate">
+                            {b.model}
+                            {usedBySomeoneElse ? " · em uso" : ""}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>CNH digital</Label>
               <input ref={cnhInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setCnhName(e.target.files?.[0]?.name ?? null)} />
               <Button type="button" variant="outline" className="w-full justify-start" onClick={() => cnhInputRef.current?.click()}>
