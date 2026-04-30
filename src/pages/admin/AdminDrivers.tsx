@@ -39,6 +39,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
 
   const drivers = useMemo(() => getDriversByCity(adminCity), [adminCity, version]);
   const schedules = useMemo(() => getSchedulesByCity(adminCity), [adminCity, version]);
+  const buses = useMemo(() => listBusesByCity(adminCity), [adminCity, version]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -56,6 +57,15 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
     reader.readAsDataURL(file);
   };
 
+  const toggleBus = (busId: string) => {
+    setForm((state) => ({
+      ...state,
+      busIds: state.busIds.includes(busId)
+        ? state.busIds.filter((id) => id !== busId)
+        : [...state.busIds, busId],
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.id && !cnhName) {
@@ -63,6 +73,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       return;
     }
 
+    let driverId = form.id;
     if (form.id) {
       updateUser(form.id, {
         name: form.name,
@@ -76,7 +87,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       toast({ title: "Motorista atualizado" });
     } else {
       const tempPassword = generateTempPassword();
-      addDriverByAdmin({
+      const created = addDriverByAdmin({
         name: form.name,
         email: form.email,
         phone: form.phone,
@@ -88,9 +99,12 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
         tempPassword,
         assignedScheduleId: form.assignedScheduleId || null,
       });
+      driverId = created.id;
       setCredentials({ email: form.email, password: tempPassword, name: form.name });
       toast({ title: "Motorista cadastrado" });
     }
+
+    if (driverId) assignDriverToBuses(driverId, form.busIds);
 
     setOpen(false);
     resetForm();
@@ -107,6 +121,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
       phone: driver.phone,
       birthDate: driver.birthDate,
       assignedScheduleId: driver.assignedScheduleId ?? "",
+      busIds: listBusesByDriver(driver.id).map((b) => b.id),
     });
     setPhoto(driver.photo);
     setCnhName(driver.cnhName ?? null);
@@ -114,6 +129,7 @@ export default function AdminDrivers({ adminCity, adminState }: Props) {
   };
 
   const handleDelete = (driverId: string) => {
+    assignDriverToBuses(driverId, []);
     removeUser(driverId);
     toast({ title: "Motorista removido" });
     setVersion((value) => value + 1);
