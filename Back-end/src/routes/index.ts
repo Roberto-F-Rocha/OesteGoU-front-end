@@ -4,6 +4,7 @@ import { registerUser } from "../controllers/registerController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { getStudentsByRoute } from "../controllers/studentController";
+import { getDriverRoutes } from "../controllers/driverController";
 import {
   listCityAgreements,
   createCityAgreement,
@@ -24,6 +25,14 @@ router.get(
   auth,
   cityAccess,
   getStudentsByRoute
+);
+
+// 🔥 ROTAS DO MOTORISTA
+router.get(
+  "/driver/routes",
+  auth,
+  cityAccess,
+  getDriverRoutes
 );
 
 // cidades
