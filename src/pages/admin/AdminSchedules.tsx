@@ -47,9 +47,7 @@ const emptyForm = {
   universityName: "",
   shiftId: "",
   dayOfWeek: "Segunda",
-  departureTime: "",
   departureLocation: "",
-  returnTime: "",
   returnLocation: "",
   driverId: "",
 };
@@ -77,14 +75,13 @@ export default function AdminSchedules({ adminCity, adminState }: Props) {
 
   const resetForm = () => setForm(emptyForm);
 
+  const selectedShift = useMemo(
+    () => shifts.find((s) => s.id === form.shiftId),
+    [shifts, form.shiftId],
+  );
+
   const handleShiftChange = (shiftId: string) => {
-    const shift = shifts.find((s) => s.id === shiftId);
-    setForm((state) => ({
-      ...state,
-      shiftId,
-      departureTime: shift?.departureTime ?? state.departureTime,
-      returnTime: shift?.returnTime ?? state.returnTime,
-    }));
+    setForm((state) => ({ ...state, shiftId }));
   };
 
   const handleUniversityChange = (universityName: string) => {
@@ -106,12 +103,16 @@ export default function AdminSchedules({ adminCity, adminState }: Props) {
       toast({ title: "Selecione uma universidade", variant: "destructive" });
       return;
     }
+    if (!selectedShift) {
+      toast({ title: "Selecione um turno", variant: "destructive" });
+      return;
+    }
     const payload = {
       title: form.universityName,
       dayOfWeek: form.dayOfWeek,
-      departureTime: form.departureTime,
+      departureTime: selectedShift.departureTime,
       departureLocation: form.departureLocation,
-      returnTime: form.returnTime,
+      returnTime: selectedShift.returnTime,
       returnLocation: form.returnLocation,
       driverId: form.driverId || null,
     };
@@ -140,9 +141,7 @@ export default function AdminSchedules({ adminCity, adminState }: Props) {
       universityName: schedule.title,
       shiftId: matchingShift?.id ?? "",
       dayOfWeek: schedule.dayOfWeek,
-      departureTime: schedule.departureTime,
       departureLocation: schedule.departureLocation,
-      returnTime: schedule.returnTime,
       returnLocation: schedule.returnLocation,
       driverId: schedule.driverId ?? "",
     });
