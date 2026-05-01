@@ -180,7 +180,7 @@ export default function AdminOverview({ adminCity, adminState }: Props) {
         <MetricCard
           title="Turnos"
           value={shifts.length}
-          subtitle="Manhã, tarde, noite e personalizados"
+          subtitle="Manhã, tarde e noite — horário fixo da cidade"
           icon={Clock}
           to="/admin/turnos"
           tone="info"
