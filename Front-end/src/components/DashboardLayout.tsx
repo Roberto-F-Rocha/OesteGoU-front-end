@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bus, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +15,18 @@ interface DashboardLayoutProps {
   children: ReactNode;
   navItems: NavItem[];
   title: string;
+}
+
+function AppLogo({ className = "w-10 h-10 rounded-xl" }: { className?: string }) {
+  return (
+    <div className={`${className} bg-white overflow-hidden shadow-sm ring-1 ring-sidebar-border flex items-center justify-center`}>
+      <img
+        src="/favicon.ico?v=4"
+        alt="OesteGoU"
+        className="w-[118%] h-[118%] max-w-none object-cover"
+      />
+    </div>
+  );
 }
 
 export default function DashboardLayout({ children, navItems, title }: DashboardLayoutProps) {
@@ -33,9 +45,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
-            <Bus className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
+          <AppLogo />
           <div>
             <h2 className="font-heading font-bold text-sidebar-foreground text-sm">OesteGoU</h2>
             <p className="text-xs text-sidebar-foreground/60">{title}</p>
@@ -80,9 +90,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
       <div className="flex-1 flex flex-col">
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Bus className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <AppLogo className="w-9 h-9 rounded-lg" />
             <span className="font-heading font-bold text-sm">OesteGoU</span>
           </div>
           <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground">
