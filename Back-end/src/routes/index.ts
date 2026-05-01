@@ -16,6 +16,22 @@ import {
   getMyReservations,
   cancelReservation,
 } from "../controllers/reservationController";
+import {
+  getAdminDashboard,
+  listAdminUsers,
+  updateUserStatus,
+  createDriver,
+  listVehicles,
+  createVehicle,
+  updateVehicle,
+  listSchedules,
+  createSchedule,
+  listPickupPoints,
+  createPickupPoint,
+  listRoutes,
+  createRoute,
+  listAuditLogs,
+} from "../controllers/adminController";
 
 const router = Router();
 
@@ -40,21 +56,38 @@ router.get(
   getDriverRoutes
 );
 
-// 🔥 RESERVAS DO ALUNO
+// reservas
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
 
+// 🔥 ADMIN
+router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
+router.get("/admin/users", auth, cityAccess, listAdminUsers);
+router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
+router.post("/admin/drivers", auth, cityAccess, createDriver);
+
+router.get("/admin/vehicles", auth, cityAccess, listVehicles);
+router.post("/admin/vehicles", auth, cityAccess, createVehicle);
+router.patch("/admin/vehicles/:id", auth, cityAccess, updateVehicle);
+
+router.get("/admin/schedules", auth, cityAccess, listSchedules);
+router.post("/admin/schedules", auth, cityAccess, createSchedule);
+
+router.get("/admin/pickup-points", auth, cityAccess, listPickupPoints);
+router.post("/admin/pickup-points", auth, cityAccess, createPickupPoint);
+
+router.get("/admin/routes", auth, cityAccess, listRoutes);
+router.post("/admin/routes", auth, cityAccess, createRoute);
+
+router.get("/admin/audit-logs", auth, cityAccess, listAuditLogs);
+
 // cidades
 router.get("/cities", auth, listCities);
 
-// acordos entre cidades
+// acordos
 router.get("/cities/agreements", auth, listCityAgreements);
 router.post("/cities/agreements", auth, createCityAgreement);
-router.patch(
-  "/cities/agreements/:id",
-  auth,
-  updateCityAgreementStatus
-);
+router.patch("/cities/agreements/:id", auth, updateCityAgreementStatus);
 
 export default router;
