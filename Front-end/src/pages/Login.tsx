@@ -20,18 +20,28 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRole) return;
-    const success = login(email, password, selectedRole);
-    if (success) {
-      navigate(selectedRole === "admin" ? "/admin" : selectedRole === "driver" ? "/motorista" : "/aluno");
-    } else {
-      toast({ title: "Erro ao entrar", description: "Email ou senha incorretos.", variant: "destructive" });
+    if (!selectedRole || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const success = await login(email, password, selectedRole);
+
+      if (success) {
+        navigate(selectedRole === "admin" ? "/admin" : selectedRole === "driver" ? "/motorista" : "/aluno");
+        return;
+      }
+
+      toast({ title: "Erro ao entrar", description: "Email, senha ou tipo de acesso incorretos.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -119,7 +129,9 @@ export default function Login() {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full">Entrar</Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Entrando..." : "Entrar"}
+            </Button>
             {selectedRole !== "driver" ? (
               <p className="text-xs text-center text-muted-foreground">
                 Não tem conta?{" "}
@@ -137,7 +149,7 @@ export default function Login() {
               </p>
             )}
             <p className="text-xs text-center text-muted-foreground">
-              Demo: {selectedRole === "admin" ? "admin@altobus.com / admin123" : selectedRole === "student" ? "aluno@altobus.com / aluno123" : "motorista@altobus.com / motorista123"}
+              Demo: {selectedRole === "admin" ? "admin@oestegou.com / 123456" : selectedRole === "student" ? "aluno@oestegou.com / 123456" : "motorista@oestegou.com / 123456"}
             </p>
           </motion.form>
         )}
