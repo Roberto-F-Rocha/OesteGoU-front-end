@@ -11,7 +11,7 @@ async function main() {
       nome: "Administrador",
       email: "admin@oestegou.com",
       senha: senhaHash,
-      role: "ADMIN",
+      role: "admin",
     },
   });
 
@@ -22,7 +22,7 @@ async function main() {
       nome: "Aluno Teste",
       email: "aluno@oestegou.com",
       senha: senhaHash,
-      role: "STUDENT",
+      role: "student",
     },
   });
 
@@ -33,7 +33,7 @@ async function main() {
       nome: "Motorista Teste",
       email: "motorista@oestegou.com",
       senha: senhaHash,
-      role: "DRIVER",
+      role: "driver",
     },
   });
 
