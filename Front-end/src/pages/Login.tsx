@@ -43,11 +43,11 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-28 h-28 mb-3 rounded-[2rem] bg-white p-2 shadow-md ring-1 ring-border/70 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-28 h-28 mb-3 rounded-[2rem] bg-white shadow-md ring-1 ring-border/70 overflow-hidden">
             <img
-              src="/favicon.ico"
+              src="/favicon.ico?v=4"
               alt="OesteGoU"
-              className="w-full h-full object-contain"
+              className="w-[118%] h-[118%] max-w-none object-cover"
             />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground">OesteGoU</h1>
