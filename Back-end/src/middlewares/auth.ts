@@ -22,6 +22,7 @@ export async function auth(req, res, next) {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
+      include: { city: true },
     });
 
     if (!user) {
@@ -33,6 +34,14 @@ export async function auth(req, res, next) {
       name: user.nome,
       email: user.email,
       role: user.role,
+      cityId: user.cityId,
+      city: user.city
+        ? {
+            id: user.city.id,
+            name: user.city.name,
+            state: user.city.state,
+          }
+        : null,
     };
 
     return next();
