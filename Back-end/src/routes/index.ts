@@ -11,6 +11,11 @@ import {
   updateCityAgreementStatus,
   listCities,
 } from "../controllers/cityAgreementController";
+import {
+  createReservation,
+  getMyReservations,
+  cancelReservation,
+} from "../controllers/reservationController";
 
 const router = Router();
 
@@ -27,13 +32,18 @@ router.get(
   getStudentsByRoute
 );
 
-// 🔥 ROTAS DO MOTORISTA
+// rotas do motorista
 router.get(
   "/driver/routes",
   auth,
   cityAccess,
   getDriverRoutes
 );
+
+// 🔥 RESERVAS DO ALUNO
+router.post("/reservations", auth, createReservation);
+router.get("/my-reservations", auth, getMyReservations);
+router.patch("/reservations/:id/cancel", auth, cancelReservation);
 
 // cidades
 router.get("/cities", auth, listCities);
