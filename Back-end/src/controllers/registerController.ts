@@ -1,117 +1,92 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
+import { registerSchema } from "../validators/userSchemas";
 
 export async function registerUser(req, res) {
-  const {
-    name,
-    email,
-    password,
-    role,
-    cpf,
-    phone,
-    birthDate,
-    institution,
-    photo,
-    cep,
-    street,
-    number,
-    neighborhood,
-    city,
-    state,
-  } = req.body;
+  const parsed = registerSchema.safeParse(req.body);
 
-  if (!name || !email || !password || !role || !city || !state) {
-    return res.status(400).json({ error: "Nome, e-mail, senha, perfil, cidade e estado são obrigatórios" });
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Dados inválidos",
+      details: parsed.error.flatten(),
+    });
   }
 
-  const allowedRoles = ["admin", "student", "driver"];
-  if (!allowedRoles.includes(role)) {
-    return res.status(400).json({ error: "Perfil inválido" });
+  const data = parsed.data;
+
+  if (data.role === "student" && !data.institution) {
+    return res.status(400).json({
+      error: "Instituição obrigatória para aluno",
+    });
   }
 
-  if (role === "student" && !institution) {
-    return res.status(400).json({ error: "Instituição é obrigatória para alunos" });
-  }
-
-  const normalizedEmail = normalizeEmail(email);
-  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email: data.email.toLowerCase() },
+  });
 
   if (existingUser) {
-    return res.status(409).json({ error: "E-mail já cadastrado" });
+    return res.status(409).json({
+      error: "E-mail já cadastrado",
+    });
   }
 
-  if (cpf) {
-    const existingCpf = await prisma.user.findUnique({ where: { cpf } });
+  if (data.cpf) {
+    const existingCpf = await prisma.user.findUnique({
+      where: { cpf: data.cpf },
+    });
+
     if (existingCpf) {
-      return res.status(409).json({ error: "CPF já cadastrado" });
+      return res.status(409).json({
+        error: "CPF já cadastrado",
+      });
     }
   }
 
-  const userCity = await prisma.city.upsert({
+  const city = await prisma.city.upsert({
     where: {
       name_state: {
-        name: city,
-        state,
+        name: data.city,
+        state: data.state,
       },
     },
     update: {},
     create: {
-      name: city,
-      state,
+      name: data.city,
+      state: data.state,
     },
   });
 
-  const senhaHash = await bcrypt.hash(password, 10);
+  const senhaHash = await bcrypt.hash(data.password, 10);
 
   const user = await prisma.user.create({
     data: {
-      nome: name,
-      email: normalizedEmail,
+      nome: data.name,
+      email: data.email.toLowerCase(),
       senha: senhaHash,
-      role,
-      cpf,
-      phone,
-      birthDate: birthDate ? new Date(birthDate) : undefined,
-      institution: role === "student" ? institution : undefined,
-      photo,
-      cep,
-      street,
-      number,
-      neighborhood,
-      cityId: userCity.id,
-      status: role === "admin" ? "active" : "pending",
+      role: data.role,
+      cpf: data.cpf,
+      phone: data.phone,
+      institution:
+        data.role === "student" ? data.institution : undefined,
+      cep: data.cep,
+      street: data.street,
+      number: data.number,
+      neighborhood: data.neighborhood,
+      cityId: city.id,
+      status: data.role === "admin" ? "active" : "pending",
     },
-    include: { city: true },
   });
 
   await createAuditLog({
     userId: user.id,
-    cityId: userCity.id,
+    cityId: city.id,
     action: "create",
     entity: "User",
     entityId: user.id,
-    description: `Cadastro de ${role} criado`,
-    metadata: { role, status: user.status },
+    description: "Cadastro realizado",
     ...getRequestAuditData(req, res),
   });
 
-  return res.status(201).json({
-    id: user.id,
-    name: user.nome,
-    email: user.email,
-    role: user.role,
-    status: user.status,
-    city: user.city
-      ? {
-          id: user.city.id,
-          name: user.city.name,
-          state: user.city.state,
-        }
-      : null,
-  });
+  return res.status(201).json(user);
 }
