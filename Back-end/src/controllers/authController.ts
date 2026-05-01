@@ -6,18 +6,27 @@ import {
   signRefreshToken,
 } from "../services/tokenService";
 
-/**
- * LOGIN
- */
 export async function login(req, res) {
   const { email, senha } = req.body;
 
+  if (!email || !senha) {
+    return res.status(400).json({ error: "E-mail e senha são obrigatórios" });
+  }
+
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: String(email).toLowerCase() },
   });
 
   if (!user || !(await bcrypt.compare(senha, user.senha))) {
     return res.status(401).json({ error: "Credenciais inválidas" });
+  }
+
+  // 🔒 VALIDAÇÃO DE STATUS
+  if (user.status !== "active") {
+    return res.status(403).json({
+      error: "Usuário não autorizado",
+      reason: user.status,
+    });
   }
 
   const accessToken = signAccessToken(user);
@@ -44,9 +53,6 @@ export async function login(req, res) {
   });
 }
 
-/**
- * ME
- */
 export async function me(req, res) {
   const userId = req.user.id;
 
@@ -57,6 +63,7 @@ export async function me(req, res) {
       nome: true,
       email: true,
       role: true,
+      status: true,
     },
   });
 
@@ -69,12 +76,10 @@ export async function me(req, res) {
     name: user.nome,
     email: user.email,
     role: user.role,
+    status: user.status,
   });
 }
 
-/**
- * REFRESH TOKEN
- */
 export async function refresh(req, res) {
   const { refreshToken } = req.body;
 
