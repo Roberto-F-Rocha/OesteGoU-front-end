@@ -7,60 +7,248 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  admin
+  student
+  driver
+}
+
+enum UserStatus {
+  active
+  pending
+  inactive
+  blocked
+}
+
+enum AgreementStatus {
+  pending
+  active
+  rejected
+  inactive
+  canceled
+}
+
+enum TripType {
+  ida
+  volta
+}
+
+enum ReservationStatus {
+  confirmed
+  canceled
+  absent
+}
+
+enum AuditAction {
+  login
+  logout
+  create
+  update
+  delete
+  view
+  approve
+  reject
+  cancel
+  access
+  error
+}
+
+model City {
+  id        Int      @id @default(autoincrement())
+  name      String
+  state     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  universities   University[]
+  pickupPoints   PickupPoint[]
+  vehicles       Vehicle[]
+  routes         TransportRoute[]
+  requesterLinks CityAgreement[] @relation("RequesterCity")
+  partnerLinks   CityAgreement[] @relation("PartnerCity")
+  auditLogs      AuditLog[]
+
+  @@unique([name, state])
+  @@index([state])
+}
+
+model CityAgreement {
+  id              Int             @id @default(autoincrement())
+  requesterCityId Int
+  partnerCityId   Int
+  status          AgreementStatus @default(pending)
+  title           String?
+  description     String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  requestedById   Int?
+  approvedById    Int?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  requesterCity City  @relation("RequesterCity", fields: [requesterCityId], references: [id])
+  partnerCity   City  @relation("PartnerCity", fields: [partnerCityId], references: [id])
+  requestedBy   User? @relation("AgreementRequestedBy", fields: [requestedById], references: [id])
+  approvedBy    User? @relation("AgreementApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([requesterCityId, partnerCityId])
+  @@index([status])
+}
+
 model User {
-  id    Int    @id @default(autoincrement())
-  nome  String
-  email String @unique
-  senha String
-  role  String
+  id           Int        @id @default(autoincrement())
+  nome         String
+  email        String     @unique
+  senha        String
+  role         UserRole
+  status       UserStatus @default(active)
+  cpf          String?    @unique
+  phone        String?
+  birthDate    DateTime?
+  institution  String?
+  photo        String?
+  cep          String?
+  street       String?
+  number       String?
+  neighborhood String?
+  cityId       Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  reservas Reserva[]
-  sessions Session[]
+  city                   City?           @relation(fields: [cityId], references: [id])
+  reservations           Reservation[]
+  sessions               Session[]
+  auditLogs              AuditLog[]
+  requestedAgreements    CityAgreement[] @relation("AgreementRequestedBy")
+  approvedAgreements     CityAgreement[] @relation("AgreementApprovedBy")
+  drivenRoutes           TransportRoute[] @relation("RouteDriver")
+
+  @@index([role])
+  @@index([cityId])
+  @@index([status])
 }
 
-model Universidade {
-  id       Int       @id @default(autoincrement())
-  nome     String
-  cidade   String
-  locais   Local[]
-  horarios Horario[]
+model University {
+  id        Int      @id @default(autoincrement())
+  name      String
+  cityName  String?
+  cityId    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City?     @relation(fields: [cityId], references: [id])
+  schedules Schedule[]
+
+  @@index([cityId])
 }
 
-model Local {
-  id             Int            @id @default(autoincrement())
-  nome           String
-  universidadeId Int
-  universidade   Universidade   @relation(fields: [universidadeId], references: [id])
-  horarios       HorarioLocal[]
+model PickupPoint {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  cityId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city         City          @relation(fields: [cityId], references: [id])
+  routePoints  RoutePoint[]
+  reservations Reservation[]
+
+  @@index([cityId])
 }
 
-model Horario {
-  id             Int            @id @default(autoincrement())
-  hora           String
-  tipo           String
-  universidadeId Int
-  universidade   Universidade   @relation(fields: [universidadeId], references: [id])
-  locais         HorarioLocal[]
-  reservas       Reserva[]
+model Vehicle {
+  id          Int      @id @default(autoincrement())
+  plate       String   @unique
+  name        String?
+  model       String?
+  capacity    Int
+  active      Boolean  @default(true)
+  cityId      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  city   City             @relation(fields: [cityId], references: [id])
+  routes TransportRoute[]
+
+  @@index([cityId])
 }
 
-model HorarioLocal {
-  id        Int @id @default(autoincrement())
-  horarioId Int
-  localId   Int
+model Schedule {
+  id           Int      @id @default(autoincrement())
+  time         String
+  type         TripType
+  active       Boolean  @default(true)
+  universityId Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  horario Horario @relation(fields: [horarioId], references: [id])
-  local   Local   @relation(fields: [localId], references: [id])
+  university  University?      @relation(fields: [universityId], references: [id])
+  routes      TransportRoute[]
+  reservations Reservation[]
+
+  @@index([type])
+  @@index([universityId])
 }
 
-model Reserva {
-  id        Int @id @default(autoincrement())
-  userId    Int
-  horarioId Int
-  localId   Int
+model TransportRoute {
+  id          Int      @id @default(autoincrement())
+  name        String
+  cityId      Int
+  scheduleId  Int
+  vehicleId   Int?
+  driverId    Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id])
-  horario Horario @relation(fields: [horarioId], references: [id])
+  city         City          @relation(fields: [cityId], references: [id])
+  schedule     Schedule      @relation(fields: [scheduleId], references: [id])
+  vehicle      Vehicle?      @relation(fields: [vehicleId], references: [id])
+  driver       User?         @relation("RouteDriver", fields: [driverId], references: [id])
+  points       RoutePoint[]
+  reservations Reservation[]
+
+  @@index([cityId])
+  @@index([scheduleId])
+  @@index([driverId])
+}
+
+model RoutePoint {
+  id            Int @id @default(autoincrement())
+  routeId       Int
+  pickupPointId Int
+  order         Int @default(0)
+
+  route       TransportRoute @relation(fields: [routeId], references: [id])
+  pickupPoint PickupPoint    @relation(fields: [pickupPointId], references: [id])
+
+  @@unique([routeId, pickupPointId])
+  @@index([pickupPointId])
+}
+
+model Reservation {
+  id            Int               @id @default(autoincrement())
+  userId        Int
+  scheduleId    Int
+  routeId       Int?
+  pickupPointId Int?
+  status        ReservationStatus @default(confirmed)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id])
+  schedule    Schedule        @relation(fields: [scheduleId], references: [id])
+  route       TransportRoute? @relation(fields: [routeId], references: [id])
+  pickupPoint PickupPoint?    @relation(fields: [pickupPointId], references: [id])
+
+  @@index([userId])
+  @@index([scheduleId])
+  @@index([routeId])
+  @@index([status])
 }
 
 model Session {
@@ -68,8 +256,36 @@ model Session {
   userId       Int
   refreshToken String   @unique
   userAgent    String?
+  ipAddress    String?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          Int         @id @default(autoincrement())
+  userId      Int?
+  cityId      Int?
+  action      AuditAction
+  entity      String?
+  entityId    String?
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  path        String?
+  method      String?
+  statusCode  Int?
+  createdAt   DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+  city City? @relation(fields: [cityId], references: [id])
+
+  @@index([userId])
+  @@index([cityId])
+  @@index([action])
+  @@index([createdAt])
 }
