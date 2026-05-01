@@ -278,14 +278,19 @@ export default function AdminSchedules({ adminCity, adminState }: Props) {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.shiftId}
                   onChange={(e) => handleShiftChange(e.target.value)}
+                  required
                 >
-                  <option value="">Personalizado</option>
+                  <option value="">Selecione...</option>
                   {shifts.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label} ({s.departureTime} → {s.returnTime})
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-muted-foreground">
+                  O horário é definido pelo turno. Para alterar os horários, vá em{" "}
+                  <strong>/admin/turnos</strong>.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -301,24 +306,18 @@ export default function AdminSchedules({ adminCity, adminState }: Props) {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Horário de saída</Label>
-                <Input
-                  type="time"
-                  value={form.departureTime}
-                  onChange={(e) => setForm((state) => ({ ...state, departureTime: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Horário de volta</Label>
-                <Input
-                  type="time"
-                  value={form.returnTime}
-                  onChange={(e) => setForm((state) => ({ ...state, returnTime: e.target.value }))}
-                  required
-                />
-              </div>
+              {selectedShift ? (
+                <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Saída do turno</p>
+                    <p className="font-heading font-bold text-foreground text-lg">{selectedShift.departureTime}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Volta do turno</p>
+                    <p className="font-heading font-bold text-foreground text-lg">{selectedShift.returnTime}</p>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-2 sm:col-span-2">
                 <div className="flex items-center justify-between">
