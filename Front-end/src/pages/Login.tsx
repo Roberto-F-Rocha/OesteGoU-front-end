@@ -43,7 +43,7 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-28 h-28 mb-2 overflow-visible">
+          <div className="inline-flex items-center justify-center w-28 h-28 mb-3 rounded-[2rem] bg-white p-2 shadow-md ring-1 ring-border/70 overflow-hidden">
             <img
               src="/favicon.ico"
               alt="OesteGoU"
