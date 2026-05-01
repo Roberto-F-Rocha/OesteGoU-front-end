@@ -81,61 +81,52 @@ async function main() {
     },
   });
 
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@oestegou.com" },
-    update: {},
-    create: {
-      nome: "Administrador",
-      email: "admin@oestegou.com",
-      senha: senhaHash,
-      role: "admin",
-<<<<<<< HEAD
-=======
-      cpf: "00000000001",
-      phone: "84999990001",
-      cityId: city.id,
->>>>>>> 84df9f0ed3b6a26655ad5df9d16f0215198a8eb0
-    },
-  });
+const admin = await prisma.user.upsert({
+  where: { email: "admin@oestegou.com" },
+  update: {},
+  create: {
+    nome: "Administrador",
+    email: "admin@oestegou.com",
+    senha: senhaHash,
+    role: "admin",
+    cpf: "00000000001",
+    phone: "84999990001",
+    cityId: city.id,
+  },
+});
 
-  const student = await prisma.user.upsert({
-    where: { email: "aluno@oestegou.com" },
-    update: {},
-    create: {
-      nome: "Aluno Teste",
-      email: "aluno@oestegou.com",
-      senha: senhaHash,
-      role: "student",
-<<<<<<< HEAD
-=======
-      cpf: "00000000002",
-      phone: "84999990002",
-      institution: university.name,
-      cityId: city.id,
-      cep: "59820-000",
-      street: "Rua Principal",
-      number: "100",
-      neighborhood: "Centro",
->>>>>>> 84df9f0ed3b6a26655ad5df9d16f0215198a8eb0
-    },
-  });
+const student = await prisma.user.upsert({
+  where: { email: "aluno@oestegou.com" },
+  update: {},
+  create: {
+    nome: "Aluno Teste",
+    email: "aluno@oestegou.com",
+    senha: senhaHash,
+    role: "student",
+    cpf: "00000000002",
+    phone: "84999990002",
+    institution: university.name,
+    cityId: city.id,
+    cep: "59820-000",
+    street: "Rua Principal",
+    number: "100",
+    neighborhood: "Centro",
+  },
+});
 
-  const driver = await prisma.user.upsert({
-    where: { email: "motorista@oestegou.com" },
-    update: {},
-    create: {
-      nome: "Motorista Teste",
-      email: "motorista@oestegou.com",
-      senha: senhaHash,
-      role: "driver",
-<<<<<<< HEAD
-=======
-      cpf: "00000000003",
-      phone: "84999990003",
-      cityId: city.id,
->>>>>>> 84df9f0ed3b6a26655ad5df9d16f0215198a8eb0
-    },
-  });
+const driver = await prisma.user.upsert({
+  where: { email: "motorista@oestegou.com" },
+  update: {},
+  create: {
+    nome: "Motorista Teste",
+    email: "motorista@oestegou.com",
+    senha: senhaHash,
+    role: "driver",
+    cpf: "00000000003",
+    phone: "84999990003",
+    cityId: city.id,
+  },
+});
 
   const route = await prisma.transportRoute.upsert({
     where: { id: 1 },
