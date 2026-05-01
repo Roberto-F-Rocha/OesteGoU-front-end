@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bus, GraduationCap, Shield, Truck, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Shield, Truck, Eye, EyeOff } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
-const roles: { value: UserRole; label: string; icon: typeof Bus; desc: string }[] = [
+const roles: { value: UserRole; label: string; icon: LucideIcon; desc: string }[] = [
   { value: "student", label: "Aluno", icon: GraduationCap, desc: "Confirme presença e veja horários" },
   { value: "driver", label: "Motorista", icon: Truck, desc: "Acesse escalas e rotas" },
   { value: "admin", label: "Administrador", icon: Shield, desc: "Gerencie todo o sistema" },
@@ -42,8 +43,12 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
-            <Bus className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4 overflow-hidden">
+            <img
+              src="/favicon.ico"
+              alt="OesteGoU"
+              className="w-10 h-10 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-heading font-bold text-foreground">OesteGoU</h1>
           <p className="text-muted-foreground mt-1">Transporte Universitário Inteligente</p>
