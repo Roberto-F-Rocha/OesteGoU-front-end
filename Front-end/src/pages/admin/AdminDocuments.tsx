@@ -8,25 +8,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { downloadProtectedFile, openProtectedFile } from "@/lib/protectedFile";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
-  adminCity: string;
-  adminState: string;
+  adminCity?: string;
+  adminState?: string;
 }
 
 interface AdminDocument {
   id: number;
   fileName: string;
-  originalName?: string | null;
-  type?: "student_document" | "driver_cnh" | "photo" | string;
+  filePath?: string | null;
+  type?: "profile_photo" | "enrollment_proof" | "driver_license" | "general" | string;
   mimeType?: string | null;
-  size?: number | null;
+  sizeBytes?: number | null;
+  status?: "pending" | "approved" | "rejected" | string;
+  moderationStatus?: string | null;
+  moderationReason?: string | null;
   createdAt?: string;
   user?: {
     id: number;
     nome: string;
     email: string;
     role: "admin" | "student" | "driver";
+    city?: { name: string; state: string } | null;
   } | null;
 }
 
@@ -39,29 +44,49 @@ function formatFileSize(size?: number | null) {
 
 function documentTypeLabel(type?: string) {
   const labels: Record<string, string> = {
-    student_document: "Declaração de matrícula",
-    driver_cnh: "CNH",
-    photo: "Foto",
+    profile_photo: "Foto de perfil",
+    enrollment_proof: "Comprovante de matrícula",
+    driver_license: "CNH",
+    general: "Documento geral",
   };
 
   return type ? labels[type] ?? type : "Documento";
 }
 
+function statusLabel(status?: string) {
+  const labels: Record<string, string> = {
+    pending: "Pendente",
+    approved: "Aprovado",
+    rejected: "Rejeitado",
+  };
+
+  return status ? labels[status] ?? status : "Pendente";
+}
+
 export default function AdminDocuments({ adminCity, adminState }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
+  const cityName = adminCity ?? user?.city?.name;
+  const stateName = adminState ?? user?.city?.state;
+
   async function loadDocuments() {
     try {
       setLoading(true);
-      const { data } = await api.get("/documents");
-      setDocuments(data ?? []);
-    } catch {
+      const { data } = await api.get("/admin/documents");
+      setDocuments(Array.isArray(data) ? data : []);
+    } catch (error: any) {
       toast({
         title: "Erro ao carregar documentos",
-        description: "Não foi possível buscar os documentos enviados.",
+        description:
+          error?.response?.status === 403
+            ? "Seu usuário não tem permissão ou não possui cidade vinculada para acessar os documentos."
+            : error?.response?.status === 401
+              ? "Sua sessão expirou. Faça login novamente."
+              : "Não foi possível buscar os documentos enviados.",
         variant: "destructive",
       });
     } finally {
@@ -79,16 +104,18 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
     const q = query.toLowerCase();
 
     return documents.filter((doc) => {
-      const fileName = doc.originalName ?? doc.fileName ?? "";
+      const fileName = doc.fileName ?? "";
       const ownerName = doc.user?.nome ?? "";
       const ownerEmail = doc.user?.email ?? "";
       const type = documentTypeLabel(doc.type);
+      const city = doc.user?.city?.name ?? "";
 
       return (
         fileName.toLowerCase().includes(q) ||
         ownerName.toLowerCase().includes(q) ||
         ownerEmail.toLowerCase().includes(q) ||
-        type.toLowerCase().includes(q)
+        type.toLowerCase().includes(q) ||
+        city.toLowerCase().includes(q)
       );
     });
   }, [documents, query]);
@@ -97,7 +124,11 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
     <div className="max-w-6xl mx-auto space-y-6">
       <PageHeader
         title="Documentos"
-        description={`Documentos enviados pelos usuários de ${adminCity} / ${adminState}.`}
+        description={
+          cityName && stateName
+            ? `Documentos enviados pelos usuários de ${cityName} / ${stateName}.`
+            : "Documentos enviados pelos usuários cadastrados."
+        }
         icon={FileText}
       />
 
@@ -107,7 +138,7 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por usuário, e-mail, arquivo ou tipo..."
+            placeholder="Buscar por usuário, e-mail, arquivo, cidade ou tipo..."
             className="pl-9"
           />
         </div>
@@ -115,12 +146,14 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[820px]">
+          <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Documento</TableHead>
                 <TableHead>Usuário</TableHead>
+                <TableHead>Cidade</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Tamanho</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -130,73 +163,82 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Carregando documentos...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Nenhum documento encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((doc) => {
-                  const fileName = doc.originalName ?? doc.fileName;
-
-                  return (
-                    <TableRow key={doc.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium text-foreground">{fileName}</p>
-                            <p className="text-xs text-muted-foreground">{doc.mimeType ?? "Tipo não informado"}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
+                filtered.map((doc) => (
+                  <TableRow key={doc.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
                         <div>
-                          <p className="text-sm text-foreground">{doc.user?.nome ?? "Usuário não informado"}</p>
-                          <p className="text-xs text-muted-foreground">{doc.user?.email ?? "E-mail não informado"}</p>
+                          <p className="font-medium text-foreground">{doc.fileName}</p>
+                          <p className="text-xs text-muted-foreground">{doc.mimeType ?? "Tipo não informado"}</p>
                         </div>
-                      </TableCell>
+                      </div>
+                    </TableCell>
 
-                      <TableCell>
-                        <Badge variant="secondary">{documentTypeLabel(doc.type)}</Badge>
-                      </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm text-foreground">{doc.user?.nome ?? "Usuário não informado"}</p>
+                        <p className="text-xs text-muted-foreground">{doc.user?.email ?? "E-mail não informado"}</p>
+                      </div>
+                    </TableCell>
 
-                      <TableCell>{formatFileSize(doc.size)}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm text-foreground">{doc.user?.city?.name ?? cityName ?? "Não informada"}</p>
+                        <p className="text-xs text-muted-foreground">{doc.user?.city?.state ?? stateName ?? "UF não informada"}</p>
+                      </div>
+                    </TableCell>
 
-                      <TableCell>
-                        {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("pt-BR") : "Não informado"}
-                      </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{documentTypeLabel(doc.type)}</Badge>
+                    </TableCell>
 
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openProtectedFile(`/documents/${doc.id}/view`)}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            Visualizar
-                          </Button>
+                    <TableCell>
+                      <Badge variant={doc.status === "rejected" ? "destructive" : doc.status === "approved" ? "default" : "secondary"}>
+                        {statusLabel(doc.status)}
+                      </Badge>
+                    </TableCell>
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => downloadProtectedFile(`/documents/${doc.id}/download`, fileName)}
-                          >
-                            <Download className="w-4 h-4 mr-1" />
-                            Baixar
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                    <TableCell>{formatFileSize(doc.sizeBytes)}</TableCell>
+
+                    <TableCell>
+                      {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("pt-BR") : "Não informado"}
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openProtectedFile(`/documents/${doc.id}/view`)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Visualizar
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadProtectedFile(`/documents/${doc.id}/download`, doc.fileName)}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Baixar
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
