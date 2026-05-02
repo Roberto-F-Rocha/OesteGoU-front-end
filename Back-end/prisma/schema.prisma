@@ -428,6 +428,8 @@ model MaintenanceTicket {
   @@index([status])
   @@index([severity])
   @@index([createdAt])
+  @@index([vehicleId, status])
+  @@index([cityId, status, createdAt])
 }
 
 model Session {
