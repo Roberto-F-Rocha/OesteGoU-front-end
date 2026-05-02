@@ -1,8 +1,10 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { socket } from "@/services/socket";
 import { useAuth } from "@/contexts/AuthContext";
+import { playNotificationHorn } from "@/lib/notificationSound";
 
 export interface AppNotification {
   id?: number;
@@ -27,7 +29,8 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -53,10 +56,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     refreshNotifications();
   }, [refreshNotifications]);
 
+  function resolveRoute(notification: AppNotification) {
+    if (notification.link) return notification.link;
+
+    if (notification.metadata?.routeId) {
+      return user?.role === "admin" ? "/admin/horarios" : "/aluno";
+    }
+
+    if (notification.metadata?.scheduleId) {
+      return "/aluno";
+    }
+
+    return user?.role === "admin" ? "/admin" : "/aluno/notificacoes";
+  }
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     function handleNewNotification(notification: AppNotification) {
+      playNotificationHorn();
+
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
         return [notification, ...current];
@@ -65,20 +84,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       toast(notification.title || "Nova notificação", {
         description: notification.message,
+        action: {
+          label: "Abrir",
+          onClick: () => navigate(resolveRoute(notification)),
+        },
       });
     }
 
     function handleTripReminder(data: { message?: string }) {
+      playNotificationHorn();
+
       toast("Sua viagem está próxima", {
         description: data.message || "Seu ônibus sai em breve!",
+        action: {
+          label: "Ver viagem",
+          onClick: () => navigate("/aluno"),
+        },
       });
     }
 
-    function handleCapacityAlert(data: { currentCount?: number; capacity?: number; current?: number }) {
-      const current = data.currentCount ?? data.current;
-      const capacity = data.capacity;
+    function handleCapacityAlert(data: any) {
+      playNotificationHorn();
+
       toast.warning("Alerta de lotação", {
-        description: current && capacity ? `O ônibus está com ${current}/${capacity} passageiros.` : "Uma rota atingiu ou ultrapassou a capacidade.",
+        description: data.current && data.capacity ? `Ônibus com ${data.current}/${data.capacity}` : "Capacidade excedida",
+        action: {
+          label: "Ver rota",
+          onClick: () => navigate("/admin/horarios"),
+        },
       });
     }
 
@@ -93,7 +126,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off("route:capacity-alert", handleCapacityAlert);
       socket.off("admin:capacity-alert", handleCapacityAlert);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate, user]);
 
   async function markAsRead(id: number) {
     await api.patch(`/notifications/${id}/read`);
