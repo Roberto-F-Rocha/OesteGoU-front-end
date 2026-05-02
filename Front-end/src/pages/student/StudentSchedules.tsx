@@ -11,6 +11,7 @@ import {
   Plus,
   School,
   Search,
+  Trash2,
   User,
   Users,
   X,
@@ -58,6 +59,9 @@ interface Reservation {
   scheduleId: number;
   pickupPointId?: number | null;
   dayOfWeek?: string | null;
+  schedule?: RouteItem["schedule"];
+  route?: Omit<RouteItem, "schedule"> | null;
+  pickupPoint?: PickupPoint | null;
 }
 
 const FILTERS = [
@@ -82,6 +86,10 @@ function universityName(route: RouteItem) {
   return route.schedule?.university?.name ?? route.name;
 }
 
+function reservationUniversity(reservation: Reservation) {
+  return reservation.schedule?.university?.name ?? reservation.route?.name ?? "Universidade não informada";
+}
+
 const emptyForm = {
   university: "",
   dayOfWeek: "Segunda",
@@ -100,6 +108,7 @@ export default function StudentSchedules() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
   async function loadData(showLoading = false) {
     try {
@@ -129,10 +138,31 @@ export default function StudentSchedules() {
 
   useLiveRefresh(() => loadData(false), { intervalMs: 10000 });
 
-  const confirmedRouteIds = useMemo(
-    () => new Set(reservations.filter((reservation) => reservation.status === "confirmed").map((reservation) => reservation.routeId)),
+  const activeReservations = useMemo(
+    () => reservations.filter((reservation) => reservation.status === "confirmed"),
     [reservations],
   );
+
+  const confirmedRouteIds = useMemo(
+    () => new Set(activeReservations.map((reservation) => reservation.routeId)),
+    [activeReservations],
+  );
+
+  const weeklyReservations = useMemo(() => {
+    const grouped: Record<string, Reservation[]> = Object.fromEntries(DAYS.map((day) => [day, []]));
+
+    activeReservations.forEach((reservation) => {
+      const day = reservation.dayOfWeek || "Sem dia";
+      if (!grouped[day]) grouped[day] = [];
+      grouped[day].push(reservation);
+    });
+
+    Object.values(grouped).forEach((items) => {
+      items.sort((a, b) => (a.schedule?.time ?? "").localeCompare(b.schedule?.time ?? ""));
+    });
+
+    return grouped;
+  }, [activeReservations]);
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
@@ -150,8 +180,8 @@ export default function StudentSchedules() {
     total: routes.length,
     ida: routes.filter((route) => route.schedule?.type === "ida").length,
     volta: routes.filter((route) => route.schedule?.type === "volta").length,
-    confirmed: routes.filter((route) => confirmedRouteIds.has(route.id)).length,
-  }), [routes, confirmedRouteIds]);
+    confirmed: activeReservations.length,
+  }), [routes, activeReservations]);
 
   const universities = useMemo(() => {
     return Array.from(new Set(routes.map(universityName))).sort((a, b) => a.localeCompare(b));
@@ -252,6 +282,19 @@ export default function StudentSchedules() {
     }
   }
 
+  async function handleRemove(reservationId: number) {
+    try {
+      setRemovingId(reservationId);
+      await api.patch(`/reservations/${reservationId}/cancel`);
+      toast({ title: "Horário removido", description: "O horário foi removido da sua semana." });
+      await loadData(false);
+    } catch {
+      toast({ title: "Erro ao remover", description: "Não foi possível remover este horário.", variant: "destructive" });
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -277,8 +320,79 @@ export default function StudentSchedules() {
         <SummaryCard label="Rotas" value={counts.total} />
         <SummaryCard label="Ida" value={counts.ida} tone="primary" />
         <SummaryCard label="Volta" value={counts.volta} tone="accent" />
-        <SummaryCard label="Confirmadas" value={counts.confirmed} tone="success" />
+        <SummaryCard label="Na semana" value={counts.confirmed} tone="success" />
       </div>
+
+      <section className="bg-card border border-border rounded-xl p-4 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" /> Minha semana
+            </h2>
+            <p className="text-sm text-muted-foreground">Seus horários salvos por dia.</p>
+          </div>
+          <Button size="sm" onClick={() => openCreate()} className="gap-2">
+            <Plus className="w-4 h-4" /> Adicionar
+          </Button>
+        </div>
+
+        {activeReservations.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center">
+            <Calendar className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+            <p className="font-heading font-semibold text-foreground">Nenhum horário na semana</p>
+            <p className="text-sm text-muted-foreground mt-1">Clique em “Novo horário” para montar sua rotina.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {DAYS.map((day) => (
+              <div key={day} className="rounded-xl border border-border bg-background/40 p-3 space-y-2 min-h-[120px]">
+                <div className="flex items-center justify-between">
+                  <p className="font-heading font-semibold text-foreground">{day}</p>
+                  <Badge variant="secondary">{weeklyReservations[day]?.length ?? 0}</Badge>
+                </div>
+                {(weeklyReservations[day]?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-muted-foreground pt-2">Nenhum horário cadastrado.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {weeklyReservations[day].map((reservation) => (
+                      <motion.div
+                        key={reservation.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-lg border border-border bg-card p-3 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{reservationUniversity(reservation)}</p>
+                            <p className="text-xs text-muted-foreground truncate">{reservation.route?.name ?? "Rota não informada"}</p>
+                          </div>
+                          <Badge variant="outline" className={cn("shrink-0", reservation.schedule?.type === "volta" ? "text-accent" : "text-primary")}>
+                            {tripLabel(reservation.schedule?.type)}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {reservation.schedule?.time ?? "--:--"}</p>
+                          <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {reservation.pickupPoint?.name ?? "Ponto definido pela administração"}</p>
+                          <p className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {reservation.route?.driver?.nome ?? "Motorista a definir"}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-full justify-center text-destructive hover:text-destructive"
+                          onClick={() => handleRemove(reservation.id)}
+                          disabled={removingId === reservation.id}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> {removingId === reservation.id ? "Removendo..." : "Remover"}
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="bg-card border border-border rounded-xl p-3 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -326,91 +440,97 @@ export default function StudentSchedules() {
           <p className="text-sm text-muted-foreground">Aguarde o administrador cadastrar rotas ativas para sua cidade.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <AnimatePresence mode="popLayout">
-            {filteredRoutes.map((route, index) => {
-              const points = routePoints(route);
-              const isConfirmed = confirmedRouteIds.has(route.id);
-              const isReturn = route.schedule?.type === "volta";
-              const capacity = route.vehicle?.capacity ?? null;
-              const occupied = route.reservations?.length ?? 0;
-              const available = typeof capacity === "number" ? Math.max(capacity - occupied, 0) : null;
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground">Rotas disponíveis</h2>
+            <p className="text-sm text-muted-foreground">Use uma rota como base para adicionar um novo horário à sua semana.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <AnimatePresence mode="popLayout">
+              {filteredRoutes.map((route, index) => {
+                const points = routePoints(route);
+                const isConfirmed = confirmedRouteIds.has(route.id);
+                const isReturn = route.schedule?.type === "volta";
+                const capacity = route.vehicle?.capacity ?? null;
+                const occupied = route.reservations?.length ?? 0;
+                const available = typeof capacity === "number" ? Math.max(capacity - occupied, 0) : null;
 
-              return (
-                <motion.div
-                  key={route.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: index * 0.025 }}
-                  className={cn(
-                    "bg-card border rounded-xl p-4 space-y-3 hover:shadow-md transition-all min-w-0",
-                    isConfirmed ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                        <GraduationCap className="w-3.5 h-3.5 shrink-0" /> Universidade
-                      </div>
-                      <h3 className="font-heading font-semibold text-foreground leading-tight line-clamp-2">
-                        {universityName(route)}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{route.name}</p>
-                    </div>
-                    {isConfirmed && (
-                      <Badge variant="outline" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shrink-0">
-                        <CheckCircle className="w-3 h-3 mr-1" /> Confirmada
-                      </Badge>
+                return (
+                  <motion.div
+                    key={route.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ delay: index * 0.025 }}
+                    className={cn(
+                      "bg-card border rounded-xl p-4 space-y-3 hover:shadow-md transition-all min-w-0",
+                      isConfirmed ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
                     )}
-                  </div>
-
-                  <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
-                        <ArrowLeftRight className={cn("w-3 h-3", isReturn ? "text-accent rotate-180" : "text-primary")} />
-                        {tripLabel(route.schedule?.type)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                          <GraduationCap className="w-3.5 h-3.5 shrink-0" /> Universidade
+                        </div>
+                        <h3 className="font-heading font-semibold text-foreground leading-tight line-clamp-2">
+                          {universityName(route)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{route.name}</p>
                       </div>
-                      <span className="font-heading font-bold text-lg text-primary">{route.schedule?.time ?? "--:--"}</span>
+                      {isConfirmed && (
+                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shrink-0">
+                          <CheckCircle className="w-3 h-3 mr-1" /> Usada
+                        </Badge>
+                      )}
                     </div>
-                    <div className="text-xs text-muted-foreground flex items-start gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span className="line-clamp-2">
-                        {points.length === 0
-                          ? "Ponto definido pela administração"
-                          : points.length === 1
-                            ? points[0].name
-                            : `${points.length} pontos disponíveis`}
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="space-y-1 text-xs border-t border-border pt-2.5 min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-muted-foreground shrink-0">Motorista:</span>
-                      <span className="text-foreground font-medium truncate">{route.driver?.nome ?? "Aguardando alocação"}</span>
+                    <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+                          <ArrowLeftRight className={cn("w-3 h-3", isReturn ? "text-accent rotate-180" : "text-primary")} />
+                          {tripLabel(route.schedule?.type)}
+                        </div>
+                        <span className="font-heading font-bold text-lg text-primary">{route.schedule?.time ?? "--:--"}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span className="line-clamp-2">
+                          {points.length === 0
+                            ? "Ponto definido pela administração"
+                            : points.length === 1
+                              ? points[0].name
+                              : `${points.length} pontos disponíveis`}
+                        </span>
+                      </div>
                     </div>
-                    {route.vehicle && (
-                      <div className="text-muted-foreground truncate">
-                        Veículo: {route.vehicle.name ?? "Ônibus"} • {route.vehicle.plate}
-                      </div>
-                    )}
-                    {available !== null && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Users className="w-3.5 h-3.5" /> {available} vagas disponíveis
-                      </div>
-                    )}
-                  </div>
 
-                  <Button className="w-full" variant="outline" onClick={() => openCreate(route)}>
-                    Usar no novo horário
-                  </Button>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                    <div className="space-y-1 text-xs border-t border-border pt-2.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-muted-foreground shrink-0">Motorista:</span>
+                        <span className="text-foreground font-medium truncate">{route.driver?.nome ?? "Aguardando alocação"}</span>
+                      </div>
+                      {route.vehicle && (
+                        <div className="text-muted-foreground truncate">
+                          Veículo: {route.vehicle.name ?? "Ônibus"} • {route.vehicle.plate}
+                        </div>
+                      )}
+                      {available !== null && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Users className="w-3.5 h-3.5" /> {available} vagas disponíveis
+                        </div>
+                      )}
+                    </div>
+
+                    <Button className="w-full" variant="outline" onClick={() => openCreate(route)}>
+                      Usar no novo horário
+                    </Button>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 
