@@ -6,6 +6,7 @@ import {
   Clock,
   GraduationCap,
   LayoutDashboard,
+  MapPin,
   School,
   Truck,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import AdminSchedules from "./admin/AdminSchedules";
 import AdminFleet from "./admin/AdminFleet";
 import AdminUniversities from "./admin/AdminUniversities";
 import AdminShifts from "./admin/AdminShifts";
+import AdminPickupPoints from "./admin/AdminPickupPoints";
 import AdminPush from "./admin/AdminPush";
 
 export default function AdminDashboard() {
@@ -33,6 +35,7 @@ export default function AdminDashboard() {
     { label: "Horários", path: "/admin/horarios", icon: Calendar },
     { label: "Turnos", path: "/admin/turnos", icon: Clock },
     { label: "Universidades", path: "/admin/universidade", icon: School },
+    { label: "Pontos", path: "/admin/pontos", icon: MapPin },
     { label: "Notificação", path: "/admin/push", icon: Bell },
   ];
 
@@ -46,12 +49,14 @@ export default function AdminDashboard() {
         <Route path="horarios" element={<AdminSchedules adminCity={adminCity} adminState={adminState} />} />
         <Route path="turnos" element={<AdminShifts adminCity={adminCity} adminState={adminState} />} />
         <Route path="universidade" element={<AdminUniversities adminCity={adminCity} adminState={adminState} />} />
+        <Route path="pontos" element={<AdminPickupPoints adminCity={adminCity} adminState={adminState} />} />
         <Route path="push" element={<AdminPush />} />
 
         <Route path="analytics" element={<Navigate to="/admin" replace />} />
         <Route path="bi" element={<Navigate to="/admin" replace />} />
         <Route path="universidades" element={<Navigate to="/admin/universidade" replace />} />
         <Route path="escalas" element={<Navigate to="/admin/horarios" replace />} />
+        <Route path="pontos-embarque" element={<Navigate to="/admin/pontos" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </DashboardLayout>
