@@ -4,7 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import DriverSchedule from "./driver/DriverSchedule";
 import DriverStudents from "./driver/DriverStudents";
 import DriverFleet from "./driver/DriverFleet";
-import MyDocuments from "../documents/MyDocuments";
+import MyDocuments from "./documents/MyDocuments";
 
 const navItems = [
   { label: "Minha Escala", path: "/motorista", icon: Calendar },
