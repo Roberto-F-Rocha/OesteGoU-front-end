@@ -1,11 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bus, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/notifications/NotificationBell";
-import { api } from "@/lib/api";
 
 interface NavItem {
   label: string;
@@ -21,29 +21,10 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, navItems, title }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  async function loadUnreadCount() {
-    try {
-      const { data } = await api.get("/notifications/my");
-      setUnreadCount(data.unreadCount ?? 0);
-    } catch {
-      setUnreadCount(0);
-    }
-  }
-
-  useEffect(() => {
-    loadUnreadCount();
-    const interval = window.setInterval(loadUnreadCount, 20000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    loadUnreadCount();
-  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -82,7 +63,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
               >
                 <item.icon className="w-5 h-5" />
                 <span className="flex-1 text-left">{item.label}</span>
-                {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">{badge > 9 ? "9+" : badge}</span>}
+                {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-sidebar animate-pulse">{badge > 9 ? "9+" : badge}</span>}
               </button>
             );
           })}
@@ -141,7 +122,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="flex-1 text-left">{item.label}</span>
-                    {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">{badge > 9 ? "9+" : badge}</span>}
+                    {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-background animate-pulse">{badge > 9 ? "9+" : badge}</span>}
                   </button>
                 );
               })}
