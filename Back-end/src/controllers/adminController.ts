@@ -519,15 +519,7 @@ export async function updateUniversity(req, res) {
     ...getRequestAuditData(req, res),
   });
 
-  return res.json({
-    ...updated,
-    driver: updated.driver
-      ? {
-          ...updated.driver,
-          phone: maskPhone(updated.driver.phone),
-        }
-      : null,
-  });
+  return res.json(updated);
 }
 
 export async function updateSchedule(req, res) {
@@ -720,10 +712,13 @@ export async function updateRoute(req, res) {
     ...getRequestAuditData(req, res),
   });
 
-  return res.json(updated);
-}
-
-function maskPhone(phone) {
-  if (!phone) return null;
-  return phone.slice(0, 2) + "*****" + phone.slice(-2);
+  return res.json({
+    ...updated,
+    driver: updated.driver
+      ? {
+          ...updated.driver,
+          phone: maskPhone(updated.driver.phone),
+        }
+      : null,
+  });
 }
