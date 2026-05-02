@@ -1,5 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Bus, Calendar, Clock, GraduationCap, LayoutDashboard, School, Truck } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Bell,
+  Bus,
+  Calendar,
+  Clock,
+  GraduationCap,
+  LayoutDashboard,
+  School,
+  Truck,
+} from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminOverview from "./admin/AdminOverview";
@@ -9,6 +20,9 @@ import AdminSchedules from "./admin/AdminSchedules";
 import AdminFleet from "./admin/AdminFleet";
 import AdminUniversities from "./admin/AdminUniversities";
 import AdminShifts from "./admin/AdminShifts";
+import AdminPush from "./admin/AdminPush";
+import AdminBI from "./admin/AdminBI";
+import AdminAnalytics from "./admin/AdminAnalytics";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -23,6 +37,9 @@ export default function AdminDashboard() {
     { label: "Horários", path: "/admin/horarios", icon: Calendar },
     { label: "Turnos", path: "/admin/turnos", icon: Clock },
     { label: "Universidades", path: "/admin/universidade", icon: School },
+    { label: "Push", path: "/admin/push", icon: Bell },
+    { label: "BI", path: "/admin/bi", icon: BarChart3 },
+    { label: "Analytics", path: "/admin/analytics", icon: Activity },
   ];
 
   return (
@@ -35,6 +52,11 @@ export default function AdminDashboard() {
         <Route path="horarios" element={<AdminSchedules adminCity={adminCity} adminState={adminState} />} />
         <Route path="turnos" element={<AdminShifts adminCity={adminCity} adminState={adminState} />} />
         <Route path="universidade" element={<AdminUniversities adminCity={adminCity} adminState={adminState} />} />
+
+        <Route path="push" element={<AdminPush />} />
+        <Route path="bi" element={<AdminBI />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+
         <Route path="universidades" element={<Navigate to="/admin/universidade" replace />} />
         <Route path="escalas" element={<Navigate to="/admin/horarios" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
