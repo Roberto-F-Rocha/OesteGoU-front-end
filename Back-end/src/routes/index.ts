@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
-import { getMyDocuments } from "../controllers/documentController";
+import { getMyDocuments, listAdminDocuments, reviewDocument, downloadDocument } from "../controllers/documentController";
 import {
   getMyNotifications,
   markNotificationAsRead,
@@ -62,6 +62,9 @@ router.get("/auth/me", auth, me);
 
 router.post("/upload", auth, upload.single("file"), uploadDocument);
 router.get("/documents/my", auth, getMyDocuments);
+router.get("/documents/:id/download", auth, downloadDocument);
+router.get("/admin/documents", auth, cityAccess, listAdminDocuments);
+router.patch("/admin/documents/:id/review", auth, cityAccess, reviewDocument);
 
 router.get("/notifications/my", auth, getMyNotifications);
 router.patch("/notifications/read-all", auth, markAllNotificationsAsRead);
