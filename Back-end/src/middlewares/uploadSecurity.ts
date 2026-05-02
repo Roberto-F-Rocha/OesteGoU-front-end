@@ -5,35 +5,35 @@ const allowedMimeTypes = [
   "application/pdf",
 ];
 
-async function getFileTypeFromBuffer(buffer) {
-  const fileType = await import("file-type");
-  return fileType.fileTypeFromBuffer(buffer);
+const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
+
+function hasAllowedExtension(fileName = "") {
+  const lower = fileName.toLowerCase();
+  return allowedExtensions.some((ext) => lower.endsWith(ext));
 }
 
 export async function validateFile(file) {
   if (!file) throw new Error("Arquivo não enviado");
 
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error("Arquivo excede 5MB");
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("Arquivo excede 8MB");
   }
 
-  const type = await getFileTypeFromBuffer(file.buffer);
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    throw new Error("Tipo de arquivo não permitido. Envie PDF, PNG, JPG, JPEG ou WEBP.");
+  }
 
-  if (!type || !allowedMimeTypes.includes(type.mime)) {
-    throw new Error("Tipo de arquivo não permitido");
+  if (!hasAllowedExtension(file.originalname)) {
+    throw new Error("Extensão de arquivo não permitida. Envie PDF, PNG, JPG, JPEG ou WEBP.");
   }
 
   return true;
 }
 
 export function basicContentScan(file) {
-  const suspiciousPatterns = [
-    "<script>",
-    "<?php",
-    "eval(",
-    "base64,",
-  ];
+  if (file.mimetype === "application/pdf") return true;
 
+  const suspiciousPatterns = ["<script>", "<?php", "eval(", "base64,"];
   const content = file.buffer.toString("utf-8").toLowerCase();
 
   for (const pattern of suspiciousPatterns) {
