@@ -158,7 +158,7 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  city                   City                @relation(fields: [cityId], references: [id])
+  city                   City?               @relation(fields: [cityId], references: [id])
   documents              UserDocument[]
   reservations           Reservation[]
   sessions               Session[]
@@ -335,8 +335,8 @@ model Schedule {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  university  University?      @relation(fields: [universityId], references: [id])
-  routes      TransportRoute[]
+  university   University?      @relation(fields: [universityId], references: [id])
+  routes       TransportRoute[]
   reservations Reservation[]
 
   @@index([type])
