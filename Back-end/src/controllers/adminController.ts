@@ -154,7 +154,12 @@ export async function updateVehicle(req, res) {
 
 export async function listSchedules(req, res) {
   if (!ensureAdmin(req, res)) return;
-  const schedules = await prisma.schedule.findMany({ include: { university: true }, orderBy: { time: "asc" } });
+  const cityIds = req.allowedCities ?? [req.user.cityId];
+  const schedules = await prisma.schedule.findMany({
+    where: { routes: { some: { cityId: { in: cityIds } } } },
+    include: { university: true },
+    orderBy: { time: "asc" },
+  });
   return res.json(schedules);
 }
 
