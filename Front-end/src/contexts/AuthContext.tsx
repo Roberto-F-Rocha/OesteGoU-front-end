@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { api } from "@/lib/api";
+import { registerPush } from "@/lib/push";
 
 export type UserRole = "admin" | "student" | "driver";
 
@@ -52,6 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await api.get("/auth/me");
         setUser(data);
         localStorage.setItem("oestegou:user", JSON.stringify(data));
+
+        // registrar push automaticamente ao recarregar sessão
+        registerPush();
       } catch {
         clearAuthStorage();
         setUser(null);
@@ -78,6 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("oestegou:user", JSON.stringify(data.user));
 
       setUser(data.user);
+
+      // registrar push automaticamente após login
+      registerPush();
 
       return true;
     } catch {
