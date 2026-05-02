@@ -14,7 +14,7 @@ import { getStudentsByRoute, getMyTripPassengers, getAvailableRoutes } from "../
 import { getDriverRoutes, notifyDriverPendingStudents } from "../controllers/driverController";
 import { uploadDocument } from "../controllers/uploadController";
 import { listCityAgreements, createCityAgreement, updateCityAgreementStatus, listCities } from "../controllers/cityAgreementController";
-import { createReservation, getMyReservations, cancelReservation, confirmReservation } from "../controllers/reservationController";
+import { createReservation, createRoundTripReservation, getMyReservations, cancelReservation, confirmReservation } from "../controllers/reservationController";
 import { createMaintenanceTicket, getMyMaintenanceTickets, listMaintenanceTickets, updateMaintenanceTicket } from "../controllers/maintenanceTicketController";
 import { getAdminDashboard, listAdminUsers, updateUserStatus, createDriver, listVehicles, createVehicle, updateVehicle, listSchedules, createSchedule, updateSchedule, listPickupPoints, createPickupPoint, updatePickupPoint, listRoutes, createRoute, updateRoute, listAuditLogs, listUniversities, createUniversity, updateUniversity } from "../controllers/adminController";
 
@@ -45,6 +45,7 @@ router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
 router.get("/driver/routes", auth, cityAccess, getDriverRoutes);
 router.post("/driver/notify-pending-students", auth, cityAccess, notifyDriverPendingStudents);
+router.post("/reservations/roundtrip", auth, createRoundTripReservation);
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
