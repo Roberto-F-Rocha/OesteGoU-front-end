@@ -55,6 +55,8 @@ import { defaultShifts, getShift, getShiftByTimes, type ShiftKey } from "@/data/
 import { cn } from "@/lib/utils";
 
 const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const DEFAULT_DEPARTURE_LOCATION = "Ponto definido pela administração";
+const DEFAULT_RETURN_LOCATION = "Ponto definido pela administração";
 
 const emptyForm = {
   id: "",
@@ -133,11 +135,11 @@ export default function StudentSchedules() {
     const dep =
       departureList.length === 1
         ? departureList[0].label
-        : getDefaultPickupPoint(city, name, "departure")?.label ?? "";
+        : getDefaultPickupPoint(city, name, "departure")?.label ?? DEFAULT_DEPARTURE_LOCATION;
     const ret =
       returnList.length === 1
         ? returnList[0].label
-        : getDefaultPickupPoint(city, name, "return")?.label ?? "";
+        : getDefaultPickupPoint(city, name, "return")?.label ?? DEFAULT_RETURN_LOCATION;
 
     setForm((s) => ({
       ...s,
@@ -164,18 +166,11 @@ export default function StudentSchedules() {
     const departureLocation =
       departurePoints.length === 1
         ? departurePoints[0].label
-        : form.departureLocation;
+        : form.departureLocation || DEFAULT_DEPARTURE_LOCATION;
     const returnLocation =
-      returnPoints.length === 1 ? returnPoints[0].label : form.returnLocation;
-
-    if (!departureLocation || !returnLocation) {
-      toast({
-        title: "Selecione os pontos",
-        description: "Escolha o ponto de saída e de volta para esta universidade.",
-        variant: "destructive",
-      });
-      return;
-    }
+      returnPoints.length === 1
+        ? returnPoints[0].label
+        : form.returnLocation || DEFAULT_RETURN_LOCATION;
 
     const payload = {
       title: form.title,
@@ -505,12 +500,12 @@ export default function StudentSchedules() {
                 <p className="font-heading font-bold text-foreground text-lg">{getShift(form.shift).departureTime}</p>
                 {form.title ? (
                   departurePoints.length > 1 ? (
-                    <select value={form.departureLocation} onChange={(e) => setForm((s) => ({ ...s, departureLocation: e.target.value }))} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                      <option value="">Selecione...</option>
+                    <select value={form.departureLocation} onChange={(e) => setForm((s) => ({ ...s, departureLocation: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="">Ponto definido pela administração</option>
                       {departurePoints.map((p) => <option key={p.id} value={p.label}>{p.label}{p.isDefault ? " (padrão)" : ""}</option>)}
                     </select>
                   ) : (
-                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" /><span className="line-clamp-2">{form.departureLocation || "Ponto não cadastrado"}</span></div>
+                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" /><span className="line-clamp-2">{form.departureLocation || DEFAULT_DEPARTURE_LOCATION}</span></div>
                   )
                 ) : <p className="text-xs text-muted-foreground italic">Selecione uma universidade para ver os pontos.</p>}
               </div>
@@ -521,12 +516,12 @@ export default function StudentSchedules() {
                 <p className="font-heading font-bold text-foreground text-lg">{getShift(form.shift).returnTime}</p>
                 {form.title ? (
                   returnPoints.length > 1 ? (
-                    <select value={form.returnLocation} onChange={(e) => setForm((s) => ({ ...s, returnLocation: e.target.value }))} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                      <option value="">Selecione...</option>
+                    <select value={form.returnLocation} onChange={(e) => setForm((s) => ({ ...s, returnLocation: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="">Ponto definido pela administração</option>
                       {returnPoints.map((p) => <option key={p.id} value={p.label}>{p.label}{p.isDefault ? " (padrão)" : ""}</option>)}
                     </select>
                   ) : (
-                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" /><span className="line-clamp-2">{form.returnLocation || "Ponto não cadastrado"}</span></div>
+                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground"><MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" /><span className="line-clamp-2">{form.returnLocation || DEFAULT_RETURN_LOCATION}</span></div>
                   )
                 ) : <p className="text-xs text-muted-foreground italic">Selecione uma universidade para ver os pontos.</p>}
               </div>
