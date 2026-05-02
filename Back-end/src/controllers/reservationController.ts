@@ -16,7 +16,7 @@ export async function createReservation(req, res) {
     });
   }
 
-  const { scheduleId, routeId, pickupPointId } = parsed.data;
+  const { scheduleId, routeId, pickupPointId, dayOfWeek } = parsed.data;
 
   if (!user?.cityId) {
     return res.status(403).json({ error: "Usuário sem cidade definida" });
@@ -84,6 +84,7 @@ export async function createReservation(req, res) {
     where: {
       userId: user.id,
       scheduleId,
+      dayOfWeek: dayOfWeek ?? null,
       status: "confirmed",
     },
   });
@@ -98,6 +99,7 @@ export async function createReservation(req, res) {
       scheduleId,
       routeId,
       pickupPointId,
+      dayOfWeek,
       status: "confirmed",
     },
     include: {
