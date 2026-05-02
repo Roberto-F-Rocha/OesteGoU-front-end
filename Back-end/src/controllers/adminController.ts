@@ -440,3 +440,15 @@ export async function listAuditLogs(req, res) {
 
   return res.json(logs);
 }
+
+export async function listUniversities(req, res) {
+  const universities = await prisma.university.findMany();
+  return res.json(universities);
+}
+
+export async function createUniversity(req, res) {
+  const uni = await prisma.university.create({
+    data: req.body,
+  });
+  return res.json(uni);
+}

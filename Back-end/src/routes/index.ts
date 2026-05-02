@@ -100,3 +100,7 @@ router.post("/cities/agreements", auth, createCityAgreement);
 router.patch("/cities/agreements/:id", auth, updateCityAgreementStatus);
 
 export default router;
+
+router.get("/admin/universities", auth, cityAccess, listUniversities);
+router.post("/admin/universities", auth, cityAccess, createUniversity);
+router.get("/students/my-trip-passengers", auth, getMyTripPassengers);

@@ -38,3 +38,35 @@ export async function getStudentsByRoute(req, res) {
 
   return res.json(grouped);
 }
+
+export async function getMyTripPassengers(req, res) {
+  const user = req.user;
+
+  const reservation = await prisma.reservation.findFirst({
+    where: {
+      userId: user.id,
+      status: "confirmed",
+    },
+  });
+
+  if (!reservation) {
+    return res.json([]);
+  }
+
+  const passengers = await prisma.reservation.findMany({
+    where: {
+      routeId: reservation.routeId,
+      status: "confirmed",
+    },
+    include: {
+      user: true,
+      pickupPoint: true,
+    },
+  });
+
+  return res.json(passengers.map(p => ({
+    nome: p.user.nome,
+    instituicao: p.user.institution,
+    ponto: p.pickupPoint?.name,
+  })));
+}
