@@ -341,8 +341,20 @@ export default function StudentSchedules() {
 
     try {
       setSaving(true);
-      await createReservation(goingRoute, goingPickupPointId);
-      await createReservation(returnRoute, returnPickupPointId);
+      await api.post("/reservations/roundtrip", {
+        dayOfWeek: form.dayOfWeek,
+        shift: form.shift,
+        going: {
+          scheduleId: goingRoute.schedule.id,
+          routeId: goingRoute.id,
+          pickupPointId: goingPickupPointId || undefined,
+        },
+        returning: {
+          scheduleId: returnRoute.schedule.id,
+          routeId: returnRoute.id,
+          pickupPointId: returnPickupPointId || undefined,
+        },
+      });
 
       toast({ title: "Horário salvo", description: `${form.dayOfWeek} adicionado com ida e volta.` });
       setCreateOpen(false);
