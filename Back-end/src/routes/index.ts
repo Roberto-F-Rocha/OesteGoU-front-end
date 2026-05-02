@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
-import { getMyDocuments, listAdminDocuments, reviewDocument, downloadDocument } from "../controllers/documentController";
+import { getMyDocuments, listAdminDocuments, reviewDocument, downloadDocument, viewDocument } from "../controllers/documentController";
 import {
   getMyNotifications,
   markNotificationAsRead,
@@ -62,6 +62,7 @@ router.get("/auth/me", auth, me);
 
 router.post("/upload", auth, upload.single("file"), uploadDocument);
 router.get("/documents/my", auth, getMyDocuments);
+router.get("/documents/:id/view", auth, viewDocument);
 router.get("/documents/:id/download", auth, downloadDocument);
 router.get("/admin/documents", auth, cityAccess, listAdminDocuments);
 router.patch("/admin/documents/:id/review", auth, cityAccess, reviewDocument);
@@ -78,45 +79,33 @@ router.get("/admin/push/history", auth, cityAccess, getPushHistory);
 router.get("/admin/analytics/dashboard", auth, cityAccess, getAnalyticsDashboard);
 
 router.get("/routes/available", auth, getAvailableRoutes);
-
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
-
 router.get("/driver/routes", auth, cityAccess, getDriverRoutes);
-
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
-
 router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
 router.get("/admin/users", auth, cityAccess, listAdminUsers);
 router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
 router.post("/admin/drivers", auth, cityAccess, createDriver);
-
 router.get("/admin/vehicles", auth, cityAccess, listVehicles);
 router.post("/admin/vehicles", auth, cityAccess, createVehicle);
 router.patch("/admin/vehicles/:id", auth, cityAccess, updateVehicle);
-
 router.get("/admin/universities", auth, cityAccess, listUniversities);
 router.post("/admin/universities", auth, cityAccess, createUniversity);
 router.patch("/admin/universities/:id", auth, cityAccess, updateUniversity);
-
 router.get("/admin/schedules", auth, cityAccess, listSchedules);
 router.post("/admin/schedules", auth, cityAccess, createSchedule);
 router.patch("/admin/schedules/:id", auth, cityAccess, updateSchedule);
-
 router.get("/admin/pickup-points", auth, cityAccess, listPickupPoints);
 router.post("/admin/pickup-points", auth, cityAccess, createPickupPoint);
 router.patch("/admin/pickup-points/:id", auth, cityAccess, updatePickupPoint);
-
 router.get("/admin/routes", auth, cityAccess, listRoutes);
 router.post("/admin/routes", auth, cityAccess, createRoute);
 router.patch("/admin/routes/:id", auth, cityAccess, updateRoute);
-
 router.get("/admin/audit-logs", auth, cityAccess, listAuditLogs);
-
 router.get("/cities", auth, listCities);
-
 router.get("/cities/agreements", auth, listCityAgreements);
 router.post("/cities/agreements", auth, createCityAgreement);
 router.patch("/cities/agreements/:id", auth, updateCityAgreementStatus);
