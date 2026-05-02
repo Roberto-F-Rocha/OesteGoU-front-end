@@ -143,16 +143,18 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  city                   City?            @relation(fields: [cityId], references: [id])
+  city                   City?              @relation(fields: [cityId], references: [id])
   documents              UserDocument[]
   reservations           Reservation[]
   sessions               Session[]
   auditLogs              AuditLog[]
   notifications          Notification[]
-  requestedAgreements    CityAgreement[]  @relation("AgreementRequestedBy")
-  approvedAgreements     CityAgreement[]  @relation("AgreementApprovedBy")
-  drivenRoutes           TransportRoute[] @relation("RouteDriver")
-  reviewedDocuments      UserDocument[]   @relation("DocumentReviewedBy")
+  pushSubscriptions      PushSubscription[]
+  analyticsEvents        AnalyticsEvent[]
+  requestedAgreements    CityAgreement[]    @relation("AgreementRequestedBy")
+  approvedAgreements     CityAgreement[]    @relation("AgreementApprovedBy")
+  drivenRoutes           TransportRoute[]   @relation("RouteDriver")
+  reviewedDocuments      UserDocument[]     @relation("DocumentReviewedBy")
 
   @@index([role])
   @@index([cityId])
@@ -174,6 +176,34 @@ model Notification {
 
   @@index([userId])
   @@index([readAt])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model AnalyticsEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([event])
   @@index([createdAt])
 }
 
