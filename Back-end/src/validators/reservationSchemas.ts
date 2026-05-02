@@ -4,6 +4,7 @@ export const createReservationSchema = z.object({
   scheduleId: z.coerce.number().int().positive(),
   routeId: z.coerce.number().int().positive().optional(),
   pickupPointId: z.coerce.number().int().positive().optional(),
+  dayOfWeek: z.string().trim().min(1).max(20).optional(),
 });
 
 export const cancelReservationSchema = z.object({
