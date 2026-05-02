@@ -235,7 +235,8 @@ model UserDocument {
   type             DocumentType
   status           DocumentStatus   @default(pending)
   fileName         String
-  filePath         String
+  filePath         String?
+  fileData         Bytes?
   mimeType         String
   sizeBytes        Int
   moderationStatus ModerationStatus @default(not_required)
