@@ -81,7 +81,10 @@ export default function StudentTrip() {
   useEffect(() => { loadData(); }, []);
 
   const handleConfirm = async (reservation: Reservation) => {
-    if (reservation.status === "confirmed") return;
+    if (reservation.status === "confirmed") {
+      toast({ title: "Presença já confirmada", description: `${tripLabel(reservation.schedule?.type)} já está marcada como vou.` });
+      return;
+    }
 
     const scheduleId = reservation.schedule?.id;
     const routeId = reservation.route?.id;
@@ -105,7 +108,10 @@ export default function StudentTrip() {
   };
 
   const handleCancel = async (reservation: Reservation) => {
-    if (reservation.status !== "confirmed") return;
+    if (reservation.status !== "confirmed") {
+      toast({ title: "Ausência já registrada", description: `${tripLabel(reservation.schedule?.type)} já está marcada como não vou.` });
+      return;
+    }
 
     try {
       setActionLoading(reservation.id);
@@ -166,10 +172,10 @@ export default function StudentTrip() {
                 </div>
 
                 <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
-                  <Button size="sm" variant={isConfirmed ? "default" : "outline"} className="w-full" onClick={() => handleConfirm(reservation)} disabled={isLoading || isConfirmed}>
+                  <Button size="sm" variant={isConfirmed ? "default" : "outline"} className="w-full" onClick={() => handleConfirm(reservation)} disabled={isLoading}>
                     <CheckCircle className="w-4 h-4 mr-1" /> {isConfirmed ? "Vou" : "Marcar vou"}
                   </Button>
-                  <Button size="sm" variant={!isConfirmed ? "destructive" : "outline"} onClick={() => handleCancel(reservation)} disabled={isLoading || !isConfirmed} className="w-full">
+                  <Button size="sm" variant={!isConfirmed ? "destructive" : "outline"} onClick={() => handleCancel(reservation)} disabled={isLoading} className="w-full">
                     <XCircle className="w-4 h-4 mr-1" /> Não vou
                   </Button>
                 </div>
