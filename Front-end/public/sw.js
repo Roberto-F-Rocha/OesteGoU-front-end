@@ -23,11 +23,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-
   if (request.method !== "GET") return;
-
   const url = new URL(request.url);
-
   if (url.pathname.startsWith("/api") || url.hostname === "localhost" && url.port === "3001") {
     event.respondWith(fetch(request).catch(() => new Response(JSON.stringify({ error: "Sem conexão com o servidor" }), {
       headers: { "Content-Type": "application/json" },
@@ -35,7 +32,6 @@ self.addEventListener("fetch", (event) => {
     })));
     return;
   }
-
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -48,4 +44,23 @@ self.addEventListener("fetch", (event) => {
         .catch(() => caches.match("/"));
     })
   );
+});
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || "OesteGoU", {
+      body: data.body || data.message || "Você recebeu uma nova notificação.",
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
+      data: { url: data.url || data.link || "/" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(clients.openWindow(url));
 });
