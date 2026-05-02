@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { socket } from "@/services/socket";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -19,6 +21,42 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode; role: s
   if (!isAuthenticated) return <Navigate to="/login" />;
   if (user?.role !== role) return <Navigate to="/login" />;
   return <>{children}</>;
+}
+
+function RealtimeListeners() {
+  useEffect(() => {
+    socket.on("notification:new", (data) => {
+      console.log("NOTIF:", data);
+    });
+
+    socket.on("route:occupancy-updated", (data) => {
+      console.log("LOTAÇÃO:", data);
+    });
+
+    socket.on("route:capacity-alert", (data) => {
+      console.log("ALERTA DE LOTAÇÃO:", data);
+      alert("Ônibus lotado!");
+    });
+
+    socket.on("admin:capacity-alert", (data) => {
+      console.log("ALERTA ADMIN:", data);
+      alert("Alerta de lotação em uma rota!");
+    });
+
+    socket.on("trip:reminder", (data) => {
+      alert(data.message || "Sua viagem está próxima!");
+    });
+
+    return () => {
+      socket.off("notification:new");
+      socket.off("route:occupancy-updated");
+      socket.off("route:capacity-alert");
+      socket.off("admin:capacity-alert");
+      socket.off("trip:reminder");
+    };
+  }, []);
+
+  return null;
 }
 
 function AppRoutes() {
@@ -44,31 +82,12 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <RealtimeListeners />
           <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
-
-useEffect(() => {
-  socket.on("notification:new", (data) => {
-    console.log("NOTIF:", data);
-  });
-
-  socket.on("route:occupancy-updated", (data) => {
-    console.log("LOTAÇÃO:", data);
-  });
-
-  socket.on("route:capacity-alert", (data) => {
-    alert("Ônibus lotado!");
-  });
-
-  socket.on("trip:reminder", (data) => {
-    alert(data.message);
-  });
-
-  return () => socket.disconnect();
-}, []);
 
 export default App;
