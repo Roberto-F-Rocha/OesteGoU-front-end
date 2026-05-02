@@ -95,6 +95,7 @@ model City {
   requesterLinks CityAgreement[] @relation("RequesterCity")
   partnerLinks   CityAgreement[] @relation("PartnerCity")
   auditLogs      AuditLog[]
+  pushSendLogs   PushSendLog[]
 
   @@unique([name, state])
   @@index([state])
@@ -151,6 +152,7 @@ model User {
   notifications          Notification[]
   pushSubscriptions      PushSubscription[]
   analyticsEvents        AnalyticsEvent[]
+  pushSendLogs           PushSendLog[]       @relation("PushSentBy")
   requestedAgreements    CityAgreement[]    @relation("AgreementRequestedBy")
   approvedAgreements     CityAgreement[]    @relation("AgreementApprovedBy")
   drivenRoutes           TransportRoute[]   @relation("RouteDriver")
@@ -191,6 +193,26 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model PushSendLog {
+  id             Int      @id @default(autoincrement())
+  title          String
+  message        String
+  url            String?
+  target         String
+  targetRole     UserRole?
+  cityId         Int?
+  sentById       Int?
+  recipients     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  city   City? @relation(fields: [cityId], references: [id])
+  sentBy User? @relation("PushSentBy", fields: [sentById], references: [id])
+
+  @@index([cityId])
+  @@index([target])
+  @@index([createdAt])
 }
 
 model AnalyticsEvent {
