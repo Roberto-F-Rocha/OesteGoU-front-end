@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { cn } from "@/lib/utils";
 
 interface NotificationItem {
   id: number;
@@ -65,7 +65,7 @@ export default function NotificationBell() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -80,32 +80,47 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[320px] rounded-xl border bg-card shadow-lg z-50 overflow-hidden">
-          <div className="p-3 border-b flex items-center justify-between">
-            <p className="font-semibold">Notificações</p>
-            <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={unreadCount === 0}>
-              <CheckCheck className="w-4 h-4 mr-1" /> Ler todas
-            </Button>
+        <div className="fixed left-4 bottom-20 md:left-[244px] md:bottom-20 w-[min(360px,calc(100vw-2rem))] rounded-xl border border-border bg-card shadow-xl z-[80] overflow-hidden">
+          <div className="p-3 border-b border-border flex items-center justify-between gap-3">
+            <p className="font-semibold text-sm text-foreground">Notificações</p>
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+                <CheckCheck className="w-4 h-4 mr-1" /> Ler todas
+              </Button>
+            )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto">
             {loading ? (
-              <div className="p-6 text-center text-sm flex items-center justify-center gap-2">
+              <div className="p-6 text-center text-sm flex items-center justify-center gap-2 text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-6 text-center text-sm">Nenhuma notificação ainda.</div>
+              <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma notificação ainda.</div>
             ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => !notification.readAt && markAsRead(notification.id)}
-                  className="w-full text-left p-3 border-b hover:bg-muted/50"
-                >
-                  <p className="font-medium text-sm">{notification.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
-                </button>
-              ))
+              notifications.slice(0, 6).map((notification) => {
+                const unread = !notification.readAt;
+                return (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    onClick={() => unread && markAsRead(notification.id)}
+                    className={cn(
+                      "w-full text-left p-3 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors",
+                      unread && "bg-primary/[0.03]",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm text-foreground leading-snug">{notification.title}</p>
+                      {unread && <span className="w-2 h-2 mt-1.5 rounded-full bg-primary shrink-0" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {new Date(notification.createdAt).toLocaleString("pt-BR")}
+                    </p>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
