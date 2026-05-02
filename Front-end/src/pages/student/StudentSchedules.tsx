@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeftRight,
-  Bus,
   Calendar,
   CheckCircle,
   Clock,
@@ -13,7 +12,6 @@ import {
   Search,
   Trash2,
   User,
-  Users,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -64,20 +62,22 @@ interface Reservation {
   pickupPoint?: PickupPoint | null;
 }
 
-const FILTERS = [
-  { key: "Todos", label: "Todos" },
-  { key: "ida", label: "Ida" },
-  { key: "volta", label: "Volta" },
-];
+type ShiftKey = "manha" | "tarde" | "noite";
 
 const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+const SHIFTS: Array<{ key: ShiftKey; label: string; startHour: number; endHour: number }> = [
+  { key: "manha", label: "Manhã", startHour: 0, endHour: 11 },
+  { key: "tarde", label: "Tarde", startHour: 12, endHour: 17 },
+  { key: "noite", label: "Noite", startHour: 18, endHour: 23 },
+];
 
 function tripLabel(type?: string) {
   return type === "volta" ? "Volta" : "Ida";
 }
 
-function routePoints(route: RouteItem) {
-  return (route.points ?? [])
+function routePoints(route?: RouteItem | null) {
+  return (route?.points ?? [])
     .map((item) => item.pickupPoint)
     .filter(Boolean) as PickupPoint[];
 }
@@ -90,12 +90,37 @@ function reservationUniversity(reservation: Reservation) {
   return reservation.schedule?.university?.name ?? reservation.route?.name ?? "Universidade não informada";
 }
 
+function getHour(time?: string) {
+  const hour = Number((time ?? "").split(":")[0]);
+  return Number.isFinite(hour) ? hour : -1;
+}
+
+function shiftFromTime(time?: string): ShiftKey {
+  const hour = getHour(time);
+  if (hour >= 18) return "noite";
+  if (hour >= 12) return "tarde";
+  return "manha";
+}
+
+function routeBelongsToShift(route: RouteItem, shift: ShiftKey) {
+  return shiftFromTime(route.schedule?.time) === shift;
+}
+
+function displayRoutePath(route?: RouteItem | null, fallbackUniversity = "Universidade") {
+  if (!route) return "Rota não encontrada";
+  const university = route.schedule?.university?.name ?? fallbackUniversity;
+  const city = route.city?.name ?? "Cidade";
+  return route.schedule?.type === "volta" ? `${university} → ${city}` : `${city} → ${university}`;
+}
+
 const emptyForm = {
   university: "",
   dayOfWeek: "Segunda",
-  type: "ida" as "ida" | "volta",
-  routeId: "",
-  pickupPointId: "",
+  shift: "" as ShiftKey | "",
+  goingRouteId: "",
+  returnRouteId: "",
+  goingPickupPointId: "",
+  returnPickupPointId: "",
 };
 
 export default function StudentSchedules() {
@@ -103,7 +128,6 @@ export default function StudentSchedules() {
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -168,13 +192,15 @@ export default function StudentSchedules() {
     return routes.filter((route) => {
       const university = universityName(route);
       const q = search.trim().toLowerCase();
-      const matchSearch = q
+      return q
         ? `${university} ${route.name} ${route.driver?.nome ?? ""} ${route.city?.name ?? ""}`.toLowerCase().includes(q)
         : true;
-      const matchType = filterType === "Todos" ? true : route.schedule?.type === filterType;
-      return matchSearch && matchType;
     });
-  }, [routes, search, filterType]);
+  }, [routes, search]);
+
+  const universities = useMemo(() => {
+    return Array.from(new Set(routes.map(universityName))).sort((a, b) => a.localeCompare(b));
+  }, [routes]);
 
   const counts = useMemo(() => ({
     total: routes.length,
@@ -183,30 +209,68 @@ export default function StudentSchedules() {
     confirmed: activeReservations.length,
   }), [routes, activeReservations]);
 
-  const universities = useMemo(() => {
-    return Array.from(new Set(routes.map(universityName))).sort((a, b) => a.localeCompare(b));
-  }, [routes]);
+  const universityRoutes = useMemo(() => {
+    return routes.filter((route) => universityName(route) === form.university);
+  }, [routes, form.university]);
 
-  const formRoutes = useMemo(() => {
-    return routes.filter((route) => universityName(route) === form.university && route.schedule?.type === form.type);
-  }, [routes, form.university, form.type]);
+  const availableShifts = useMemo(() => {
+    if (!form.university) return [];
+    return SHIFTS.filter((shift) =>
+      universityRoutes.some((route) => route.schedule?.type === "ida" && routeBelongsToShift(route, shift.key)) ||
+      universityRoutes.some((route) => route.schedule?.type === "volta" && routeBelongsToShift(route, shift.key)),
+    );
+  }, [form.university, universityRoutes]);
 
-  const selectedRoute = useMemo(() => {
-    return formRoutes.find((route) => String(route.id) === form.routeId) ?? formRoutes[0];
-  }, [formRoutes, form.routeId]);
+  const goingRoutesForShift = useMemo(() => {
+    if (!form.shift) return [];
+    return universityRoutes.filter(
+      (route) => route.schedule?.type === "ida" && routeBelongsToShift(route, form.shift as ShiftKey),
+    );
+  }, [universityRoutes, form.shift]);
 
-  const selectedRoutePoints = selectedRoute ? routePoints(selectedRoute) : [];
-  const canSave = !!selectedRoute?.schedule?.id && (selectedRoutePoints.length <= 1 || !!form.pickupPointId);
+  const returnRoutesForShift = useMemo(() => {
+    if (!form.shift) return [];
+    return universityRoutes.filter(
+      (route) => route.schedule?.type === "volta" && routeBelongsToShift(route, form.shift as ShiftKey),
+    );
+  }, [universityRoutes, form.shift]);
+
+  const goingRoute = useMemo(() => {
+    return goingRoutesForShift.find((route) => String(route.id) === form.goingRouteId) ?? goingRoutesForShift[0] ?? null;
+  }, [goingRoutesForShift, form.goingRouteId]);
+
+  const returnRoute = useMemo(() => {
+    return returnRoutesForShift.find((route) => String(route.id) === form.returnRouteId) ?? returnRoutesForShift[0] ?? null;
+  }, [returnRoutesForShift, form.returnRouteId]);
+
+  const goingPoints = routePoints(goingRoute);
+  const returnPoints = routePoints(returnRoute);
+
+  const canSave =
+    !!goingRoute?.schedule?.id &&
+    !!returnRoute?.schedule?.id &&
+    (goingPoints.length <= 1 || !!form.goingPickupPointId) &&
+    (returnPoints.length <= 1 || !!form.returnPickupPointId);
+
+  function autoPointId(points: PickupPoint[]) {
+    return points.length === 1 ? String(points[0].id) : "";
+  }
 
   function openCreate(route?: RouteItem) {
     if (route) {
-      const points = routePoints(route);
+      const university = universityName(route);
+      const shift = shiftFromTime(route.schedule?.time);
+      const routesFromUniversity = routes.filter((item) => universityName(item) === university);
+      const going = routesFromUniversity.find((item) => item.schedule?.type === "ida" && routeBelongsToShift(item, shift));
+      const returning = routesFromUniversity.find((item) => item.schedule?.type === "volta" && routeBelongsToShift(item, shift));
       setForm({
-        university: universityName(route),
+        university,
         dayOfWeek: "Segunda",
-        type: route.schedule?.type ?? "ida",
-        routeId: String(route.id),
-        pickupPointId: points.length === 1 ? String(points[0].id) : "",
+        shift,
+        goingRouteId: going ? String(going.id) : "",
+        returnRouteId: returning ? String(returning.id) : "",
+        goingPickupPointId: autoPointId(routePoints(going)),
+        returnPickupPointId: autoPointId(routePoints(returning)),
       });
     } else {
       setForm(emptyForm);
@@ -215,59 +279,87 @@ export default function StudentSchedules() {
   }
 
   function handleUniversityChange(value: string) {
-    const firstRoute = routes.find((route) => universityName(route) === value && route.schedule?.type === form.type);
-    const points = firstRoute ? routePoints(firstRoute) : [];
     setForm((current) => ({
       ...current,
       university: value,
-      routeId: firstRoute ? String(firstRoute.id) : "",
-      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+      shift: "",
+      goingRouteId: "",
+      returnRouteId: "",
+      goingPickupPointId: "",
+      returnPickupPointId: "",
     }));
   }
 
-  function handleTypeChange(type: "ida" | "volta") {
-    const firstRoute = routes.find((route) => universityName(route) === form.university && route.schedule?.type === type);
-    const points = firstRoute ? routePoints(firstRoute) : [];
+  function handleShiftChange(shift: ShiftKey) {
+    const routesFromUniversity = routes.filter((route) => universityName(route) === form.university);
+    const going = routesFromUniversity.find((route) => route.schedule?.type === "ida" && routeBelongsToShift(route, shift));
+    const returning = routesFromUniversity.find((route) => route.schedule?.type === "volta" && routeBelongsToShift(route, shift));
     setForm((current) => ({
       ...current,
-      type,
-      routeId: firstRoute ? String(firstRoute.id) : "",
-      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+      shift,
+      goingRouteId: going ? String(going.id) : "",
+      returnRouteId: returning ? String(returning.id) : "",
+      goingPickupPointId: autoPointId(routePoints(going)),
+      returnPickupPointId: autoPointId(routePoints(returning)),
     }));
   }
 
-  function handleRouteChange(routeId: string) {
+  function handleGoingRouteChange(routeId: string) {
     const route = routes.find((item) => String(item.id) === routeId);
-    const points = route ? routePoints(route) : [];
     setForm((current) => ({
       ...current,
-      routeId,
-      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+      goingRouteId: routeId,
+      goingPickupPointId: autoPointId(routePoints(route)),
     }));
+  }
+
+  function handleReturnRouteChange(routeId: string) {
+    const route = routes.find((item) => String(item.id) === routeId);
+    setForm((current) => ({
+      ...current,
+      returnRouteId: routeId,
+      returnPickupPointId: autoPointId(routePoints(route)),
+    }));
+  }
+
+  async function createReservation(route: RouteItem, pickupPointId: string) {
+    await api.post("/reservations", {
+      scheduleId: route.schedule?.id,
+      routeId: route.id,
+      pickupPointId: pickupPointId ? Number(pickupPointId) : undefined,
+      dayOfWeek: form.dayOfWeek,
+    });
   }
 
   async function handleSave() {
-    if (!selectedRoute?.schedule?.id) {
-      toast({ title: "Rota obrigatória", description: "Selecione universidade e turno para localizar uma rota.", variant: "destructive" });
+    if (!goingRoute?.schedule?.id || !returnRoute?.schedule?.id) {
+      toast({
+        title: "Rotas obrigatórias",
+        description: "Selecione uma universidade e um turno que possuam ida e volta cadastradas.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const pickupPointId = form.pickupPointId || (selectedRoutePoints.length === 1 ? String(selectedRoutePoints[0].id) : "");
-    if (selectedRoutePoints.length > 1 && !pickupPointId) {
-      toast({ title: "Selecione o ponto", description: "Escolha seu ponto antes de salvar.", variant: "destructive" });
+    const goingPickupPointId = form.goingPickupPointId || autoPointId(goingPoints);
+    const returnPickupPointId = form.returnPickupPointId || autoPointId(returnPoints);
+
+    if (goingPoints.length > 1 && !goingPickupPointId) {
+      toast({ title: "Selecione o ponto de ida", variant: "destructive" });
+      return;
+    }
+
+    if (returnPoints.length > 1 && !returnPickupPointId) {
+      toast({ title: "Selecione o ponto de volta", variant: "destructive" });
       return;
     }
 
     try {
       setSaving(true);
-      await api.post("/reservations", {
-        scheduleId: selectedRoute.schedule.id,
-        routeId: selectedRoute.id,
-        pickupPointId: pickupPointId ? Number(pickupPointId) : undefined,
-        dayOfWeek: form.dayOfWeek,
-      });
+      await createReservation(goingRoute, goingPickupPointId);
+      await createReservation(returnRoute, returnPickupPointId);
 
-      toast({ title: "Horário salvo", description: `${form.dayOfWeek} · ${tripLabel(form.type)} adicionado à sua semana.` });
+      toast({ title: "Horário salvo", description: `${form.dayOfWeek} adicionado com ida e volta.` });
       setCreateOpen(false);
       setForm(emptyForm);
       await loadData(false);
@@ -303,17 +395,12 @@ export default function StudentSchedules() {
             <Clock className="w-6 h-6 text-primary" /> Horários
           </h1>
           <p className="text-muted-foreground text-sm">
-            Monte sua semana escolhendo universidade, dia, turno e ponto com base nas rotas cadastradas pelo administrador.
+            Monte sua semana escolhendo universidade, dia, turno e pontos cadastrados pelo administrador.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="h-9 px-3 gap-2 bg-card">
-            <Bus className="w-4 h-4 text-primary" /> Atualização automática
-          </Badge>
-          <Button onClick={() => openCreate()} className="gap-2">
-            <Plus className="w-4 h-4" /> Novo horário
-          </Button>
-        </div>
+        <Button onClick={() => openCreate()} className="gap-2">
+          <Plus className="w-4 h-4" /> Novo horário
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -331,9 +418,6 @@ export default function StudentSchedules() {
             </h2>
             <p className="text-sm text-muted-foreground">Seus horários salvos por dia.</p>
           </div>
-          <Button size="sm" onClick={() => openCreate()} className="gap-2">
-            <Plus className="w-4 h-4" /> Adicionar
-          </Button>
         </div>
 
         {activeReservations.length === 0 ? (
@@ -394,8 +478,8 @@ export default function StudentSchedules() {
         )}
       </section>
 
-      <div className="bg-card border border-border rounded-xl p-3 flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="bg-card border border-border rounded-xl p-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por universidade, rota, motorista ou cidade..."
@@ -403,23 +487,6 @@ export default function StudentSchedules() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((filter) => (
-            <button
-              key={filter.key}
-              type="button"
-              onClick={() => setFilterType(filter.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-colors border flex-1 sm:flex-none",
-                filterType === filter.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
-              )}
-            >
-              {filter.label}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -443,7 +510,7 @@ export default function StudentSchedules() {
         <div className="space-y-3">
           <div>
             <h2 className="font-heading font-semibold text-foreground">Rotas disponíveis</h2>
-            <p className="text-sm text-muted-foreground">Use uma rota como base para adicionar um novo horário à sua semana.</p>
+            <p className="text-sm text-muted-foreground">Consulte as rotas cadastradas pelo administrador.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <AnimatePresence mode="popLayout">
@@ -451,9 +518,6 @@ export default function StudentSchedules() {
                 const points = routePoints(route);
                 const isConfirmed = confirmedRouteIds.has(route.id);
                 const isReturn = route.schedule?.type === "volta";
-                const capacity = route.vehicle?.capacity ?? null;
-                const occupied = route.reservations?.length ?? 0;
-                const available = typeof capacity === "number" ? Math.max(capacity - occupied, 0) : null;
 
                 return (
                   <motion.div
@@ -476,7 +540,7 @@ export default function StudentSchedules() {
                         <h3 className="font-heading font-semibold text-foreground leading-tight line-clamp-2">
                           {universityName(route)}
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1 truncate">{route.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{displayRoutePath(route, universityName(route))}</p>
                       </div>
                       {isConfirmed && (
                         <Badge variant="outline" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shrink-0">
@@ -511,21 +575,7 @@ export default function StudentSchedules() {
                         <span className="text-muted-foreground shrink-0">Motorista:</span>
                         <span className="text-foreground font-medium truncate">{route.driver?.nome ?? "Aguardando alocação"}</span>
                       </div>
-                      {route.vehicle && (
-                        <div className="text-muted-foreground truncate">
-                          Veículo: {route.vehicle.name ?? "Ônibus"} • {route.vehicle.plate}
-                        </div>
-                      )}
-                      {available !== null && (
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Users className="w-3.5 h-3.5" /> {available} vagas disponíveis
-                        </div>
-                      )}
                     </div>
-
-                    <Button className="w-full" variant="outline" onClick={() => openCreate(route)}>
-                      Usar no novo horário
-                    </Button>
                   </motion.div>
                 );
               })}
@@ -571,61 +621,97 @@ export default function StudentSchedules() {
 
               <div className="space-y-2">
                 <Label>Turno</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["ida", "volta"] as const).map((type) => (
-                    <button key={type} type="button" onClick={() => handleTypeChange(type)} className={cn("rounded-lg border p-3 text-left transition-all", form.type === type ? "bg-primary/10 border-primary ring-2 ring-primary/20" : "bg-background border-border hover:border-primary/40")}>
-                      <p className={cn("font-heading font-semibold text-sm", form.type === type ? "text-primary" : "text-foreground")}>{tripLabel(type)}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Rotas de {tripLabel(type).toLowerCase()} cadastradas pelo administrador</p>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 gap-2">
+                  {SHIFTS.map((shift) => {
+                    const enabled = availableShifts.some((item) => item.key === shift.key);
+                    const selected = form.shift === shift.key;
+                    return (
+                      <button
+                        key={shift.key}
+                        type="button"
+                        disabled={!enabled}
+                        onClick={() => enabled && handleShiftChange(shift.key)}
+                        className={cn(
+                          "rounded-lg border p-3 text-left transition-all",
+                          selected ? "bg-primary/10 border-primary ring-2 ring-primary/20" : "bg-background border-border hover:border-primary/40",
+                          !enabled && "opacity-50 cursor-not-allowed hover:border-border",
+                        )}
+                      >
+                        <p className={cn("font-heading font-semibold text-sm", selected ? "text-primary" : "text-foreground")}>{shift.label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Rotas disponíveis" : "Sem rota"}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {formRoutes.length > 1 && (
-                <div className="space-y-2">
-                  <Label>Rota disponível</Label>
-                  <select value={form.routeId} onChange={(event) => handleRouteChange(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    {formRoutes.map((route) => <option key={route.id} value={route.id}>{route.name} · {route.schedule?.time ?? "--:--"}</option>)}
-                  </select>
+              {!form.university ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                  Selecione uma universidade para carregar os turnos disponíveis.
                 </div>
-              )}
-
-              {selectedRoute ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
-                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
-                      <ArrowLeftRight className={cn("w-3 h-3", selectedRoute.schedule?.type === "volta" ? "text-accent rotate-180" : "text-primary")} /> {tripLabel(selectedRoute.schedule?.type)}
-                    </div>
-                    <p className="font-heading font-bold text-foreground text-lg">{selectedRoute.schedule?.time ?? "--:--"}</p>
-                    <p className="text-xs text-muted-foreground">{selectedRoute.name}</p>
-                  </div>
-                  <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
-                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
-                      <User className="w-3 h-3 text-primary" /> Motorista
-                    </div>
-                    <p className="font-heading font-semibold text-foreground text-sm">{selectedRoute.driver?.nome ?? "Aguardando alocação"}</p>
-                    <p className="text-xs text-muted-foreground">{selectedRoute.vehicle ? `${selectedRoute.vehicle.name ?? "Ônibus"} · ${selectedRoute.vehicle.plate}` : "Veículo aguardando alocação"}</p>
-                  </div>
+              ) : !form.shift ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                  Selecione um turno para visualizar ida, volta e pontos.
+                </div>
+              ) : !goingRoute || !returnRoute ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                  É necessário existir uma rota de ida e uma rota de volta para essa universidade e turno.
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
-                  Nenhuma rota encontrada para essa universidade e turno.
-                </div>
-              )}
+                <div className="space-y-3">
+                  {(goingRoutesForShift.length > 1 || returnRoutesForShift.length > 1) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {goingRoutesForShift.length > 1 && (
+                        <div className="space-y-2">
+                          <Label>Rota de ida</Label>
+                          <select value={String(goingRoute.id)} onChange={(event) => handleGoingRouteChange(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                            {goingRoutesForShift.map((route) => <option key={route.id} value={route.id}>{route.name} · {route.schedule?.time ?? "--:--"}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {returnRoutesForShift.length > 1 && (
+                        <div className="space-y-2">
+                          <Label>Rota de volta</Label>
+                          <select value={String(returnRoute.id)} onChange={(event) => handleReturnRouteChange(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                            {returnRoutesForShift.map((route) => <option key={route.id} value={route.id}>{route.name} · {route.schedule?.time ?? "--:--"}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              {selectedRoute && selectedRoutePoints.length > 1 && (
-                <div className="space-y-2">
-                  <Label>Ponto</Label>
-                  <select value={form.pickupPointId} onChange={(event) => setForm((current) => ({ ...current, pickupPointId: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option value="">Selecione o ponto...</option>
-                    {selectedRoutePoints.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}
-                  </select>
-                </div>
-              )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <RouteInfoCard title="Ida" route={goingRoute} university={form.university} />
+                    <RouteInfoCard title="Volta" route={returnRoute} university={form.university} />
+                  </div>
 
-              {selectedRoute && selectedRoutePoints.length === 1 && (
-                <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-primary" /> {selectedRoutePoints[0].name}
+                  <div className="space-y-2">
+                    <Label>Ponto de ida</Label>
+                    {goingPoints.length > 1 ? (
+                      <select value={form.goingPickupPointId} onChange={(event) => setForm((current) => ({ ...current, goingPickupPointId: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                        <option value="">Selecione o ponto de ida...</option>
+                        {goingPoints.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}
+                      </select>
+                    ) : (
+                      <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" /> {goingPoints[0]?.name ?? "Ponto definido pela administração"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Ponto de volta</Label>
+                    {returnPoints.length > 1 ? (
+                      <select value={form.returnPickupPointId} onChange={(event) => setForm((current) => ({ ...current, returnPickupPointId: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                        <option value="">Selecione o ponto de volta...</option>
+                        {returnPoints.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}
+                      </select>
+                    ) : (
+                      <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-accent" /> {returnPoints[0]?.name ?? "Ponto definido pela administração"}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -637,6 +723,23 @@ export default function StudentSchedules() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RouteInfoCard({ title, route, university }: { title: "Ida" | "Volta"; route: RouteItem; university: string }) {
+  const isReturn = route.schedule?.type === "volta";
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+        <ArrowLeftRight className={cn("w-3 h-3", isReturn ? "text-accent rotate-180" : "text-primary")} /> {title}
+      </div>
+      <p className="font-heading font-bold text-foreground text-lg">{route.schedule?.time ?? "--:--"}</p>
+      <p className="text-xs text-muted-foreground">{displayRoutePath(route, university)}</p>
+      <div className="pt-2 border-t border-border text-xs text-muted-foreground space-y-1">
+        <p className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> {route.driver?.nome ?? "Motorista a definir"}</p>
+        {route.vehicle && <p>{route.vehicle.name ?? "Ônibus"} · {route.vehicle.plate}</p>}
+      </div>
     </div>
   );
 }
