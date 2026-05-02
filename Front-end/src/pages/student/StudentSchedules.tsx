@@ -99,6 +99,7 @@ export default function StudentSchedules() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
 
   async function loadData(showLoading = false) {
     try {
@@ -165,6 +166,7 @@ export default function StudentSchedules() {
   }, [formRoutes, form.routeId]);
 
   const selectedRoutePoints = selectedRoute ? routePoints(selectedRoute) : [];
+  const canSave = !!selectedRoute?.schedule?.id && (selectedRoutePoints.length <= 1 || !!form.pickupPointId);
 
   function openCreate(route?: RouteItem) {
     if (route) {
@@ -212,6 +214,42 @@ export default function StudentSchedules() {
       routeId,
       pickupPointId: points.length === 1 ? String(points[0].id) : "",
     }));
+  }
+
+  async function handleSave() {
+    if (!selectedRoute?.schedule?.id) {
+      toast({ title: "Rota obrigatória", description: "Selecione universidade e turno para localizar uma rota.", variant: "destructive" });
+      return;
+    }
+
+    const pickupPointId = form.pickupPointId || (selectedRoutePoints.length === 1 ? String(selectedRoutePoints[0].id) : "");
+    if (selectedRoutePoints.length > 1 && !pickupPointId) {
+      toast({ title: "Selecione o ponto", description: "Escolha seu ponto antes de salvar.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await api.post("/reservations", {
+        scheduleId: selectedRoute.schedule.id,
+        routeId: selectedRoute.id,
+        pickupPointId: pickupPointId ? Number(pickupPointId) : undefined,
+        dayOfWeek: form.dayOfWeek,
+      });
+
+      toast({ title: "Horário salvo", description: `${form.dayOfWeek} · ${tripLabel(form.type)} adicionado à sua semana.` });
+      setCreateOpen(false);
+      setForm(emptyForm);
+      await loadData(false);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao salvar",
+        description: error?.response?.data?.error ?? "Não foi possível salvar este horário.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -474,7 +512,7 @@ export default function StudentSchedules() {
 
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button disabled>Salvar na parte 3</Button>
+              <Button onClick={handleSave} disabled={!canSave || saving}>{saving ? "Salvando..." : "Salvar horário"}</Button>
             </div>
           </div>
         </div>
