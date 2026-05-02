@@ -1,11 +1,13 @@
 import { Router } from "express";
+import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
-import { getStudentsByRoute } from "../controllers/studentController";
+import { getStudentsByRoute, getMyTripPassengers } from "../controllers/studentController";
 import { getDriverRoutes } from "../controllers/driverController";
+import { uploadDocument } from "../controllers/uploadController";
 import {
   listCityAgreements,
   createCityAgreement,
@@ -27,21 +29,21 @@ import {
   updateVehicle,
   listSchedules,
   createSchedule,
+  updateSchedule,
   listPickupPoints,
   createPickupPoint,
+  updatePickupPoint,
   listRoutes,
   createRoute,
+  updateRoute,
   listAuditLogs,
+  listUniversities,
+  createUniversity,
+  updateUniversity,
 } from "../controllers/adminController";
 
-import multer from "multer";
-import { uploadDocument } from "../controllers/uploadController";
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-router.post("/upload", auth, upload.single("file"), uploadDocument);
-
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/auth/login", loginRateLimit, login);
 router.post("/auth/logout", auth, logout);
@@ -49,28 +51,17 @@ router.post("/auth/register", registerUser);
 router.post("/auth/refresh", refresh);
 router.get("/auth/me", auth, me);
 
-// alunos por rota
-router.get(
-  "/students/by-route/:routeId",
-  auth,
-  cityAccess,
-  getStudentsByRoute
-);
+router.post("/upload", auth, upload.single("file"), uploadDocument);
 
-// rotas do motorista
-router.get(
-  "/driver/routes",
-  auth,
-  cityAccess,
-  getDriverRoutes
-);
+router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
+router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
 
-// reservas
+router.get("/driver/routes", auth, cityAccess, getDriverRoutes);
+
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
 
-// ADMIN
 router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
 router.get("/admin/users", auth, cityAccess, listAdminUsers);
 router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
@@ -80,27 +71,28 @@ router.get("/admin/vehicles", auth, cityAccess, listVehicles);
 router.post("/admin/vehicles", auth, cityAccess, createVehicle);
 router.patch("/admin/vehicles/:id", auth, cityAccess, updateVehicle);
 
+router.get("/admin/universities", auth, cityAccess, listUniversities);
+router.post("/admin/universities", auth, cityAccess, createUniversity);
+router.patch("/admin/universities/:id", auth, cityAccess, updateUniversity);
+
 router.get("/admin/schedules", auth, cityAccess, listSchedules);
 router.post("/admin/schedules", auth, cityAccess, createSchedule);
+router.patch("/admin/schedules/:id", auth, cityAccess, updateSchedule);
 
 router.get("/admin/pickup-points", auth, cityAccess, listPickupPoints);
 router.post("/admin/pickup-points", auth, cityAccess, createPickupPoint);
+router.patch("/admin/pickup-points/:id", auth, cityAccess, updatePickupPoint);
 
 router.get("/admin/routes", auth, cityAccess, listRoutes);
 router.post("/admin/routes", auth, cityAccess, createRoute);
+router.patch("/admin/routes/:id", auth, cityAccess, updateRoute);
 
 router.get("/admin/audit-logs", auth, cityAccess, listAuditLogs);
 
-// cidades
 router.get("/cities", auth, listCities);
 
-// acordos
 router.get("/cities/agreements", auth, listCityAgreements);
 router.post("/cities/agreements", auth, createCityAgreement);
 router.patch("/cities/agreements/:id", auth, updateCityAgreementStatus);
 
 export default router;
-
-router.get("/admin/universities", auth, cityAccess, listUniversities);
-router.post("/admin/universities", auth, cityAccess, createUniversity);
-router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
