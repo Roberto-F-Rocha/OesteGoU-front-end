@@ -11,23 +11,10 @@ export async function getAvailableRoutes(req, res) {
     return res.status(403).json({ error: "Usuário sem cidade definida" });
   }
 
-  const agreements = await prisma.cityAgreement.findMany({
-    where: {
-      status: "active",
-      OR: [{ requesterCityId: user.cityId }, { partnerCityId: user.cityId }],
-    },
-    select: { requesterCityId: true, partnerCityId: true },
-  });
-
-  const allowedCityIds = Array.from(new Set([
-    user.cityId,
-    ...agreements.flatMap((agreement) => [agreement.requesterCityId, agreement.partnerCityId]),
-  ]));
-
   const routes = await prisma.transportRoute.findMany({
     where: {
       active: true,
-      cityId: { in: allowedCityIds },
+      cityId: user.cityId,
       schedule: { active: true },
     },
     include: {
@@ -36,7 +23,14 @@ export async function getAvailableRoutes(req, res) {
       vehicle: true,
       driver: { select: { id: true, nome: true, email: true } },
       points: {
-        where: { pickupPoint: { is: { active: true } } },
+        where: {
+          pickupPoint: {
+            is: {
+              active: true,
+              cityId: user.cityId,
+            },
+          },
+        },
         include: { pickupPoint: { include: { university: true, city: true } } },
         orderBy: { order: "asc" },
       },
@@ -50,22 +44,33 @@ export async function getAvailableRoutes(req, res) {
 
 export async function getStudentsByRoute(req, res) {
   const { routeId } = req.params;
-  const allowedCities = req.allowedCities;
+  const user = req.user;
+  const allowedCities = req.allowedCities ?? (user?.cityId ? [user.cityId] : []);
+
+  const route = await prisma.transportRoute.findUnique({ where: { id: Number(routeId) } });
+  if (!route || !allowedCities.includes(route.cityId)) {
+    return res.status(404).json({ error: "Rota não encontrada para sua cidade" });
+  }
 
   const reservations = await prisma.reservation.findMany({
     where: {
       routeId: Number(routeId),
       status: "confirmed",
-      user: { cityId: { in: allowedCities } },
     },
-    include: { user: true, pickupPoint: true },
+    include: { user: { include: { city: true } }, pickupPoint: true },
   });
 
   const grouped = {};
   reservations.forEach((r) => {
-    const city = r.user.cityId;
+    const city = r.user.city?.name ?? "Cidade não informada";
     if (!grouped[city]) grouped[city] = [];
-    grouped[city].push({ id: r.user.id, nome: r.user.nome, institution: r.user.institution, ponto: r.pickupPoint?.name });
+    grouped[city].push({
+      id: r.user.id,
+      nome: r.user.nome,
+      institution: r.user.institution,
+      cidade: r.user.city,
+      ponto: r.pickupPoint?.name,
+    });
   });
 
   return res.json(grouped);
@@ -74,13 +79,31 @@ export async function getStudentsByRoute(req, res) {
 export async function getMyTripPassengers(req, res) {
   const user = req.user;
 
-  const reservation = await prisma.reservation.findFirst({ where: { userId: user.id, status: "confirmed" } });
+  if (!user?.cityId) return res.status(403).json({ error: "Usuário sem cidade definida" });
+
+  const reservation = await prisma.reservation.findFirst({
+    where: {
+      userId: user.id,
+      status: "confirmed",
+      route: { cityId: user.cityId },
+    },
+  });
+
   if (!reservation) return res.json([]);
 
   const passengers = await prisma.reservation.findMany({
-    where: { routeId: reservation.routeId, status: "confirmed" },
-    include: { user: true, pickupPoint: true },
+    where: {
+      routeId: reservation.routeId,
+      status: "confirmed",
+    },
+    include: { user: { include: { city: true } }, pickupPoint: true },
   });
 
-  return res.json(passengers.map((p) => ({ nome: p.user.nome, instituicao: p.user.institution, ponto: p.pickupPoint?.name })));
+  return res.json(passengers.map((p) => ({
+    nome: p.user.nome,
+    instituicao: p.user.institution,
+    cidade: p.user.city?.name,
+    uf: p.user.city?.state,
+    ponto: p.pickupPoint?.name,
+  })));
 }
