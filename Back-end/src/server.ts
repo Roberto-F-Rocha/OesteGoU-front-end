@@ -6,6 +6,7 @@ import { auditLogger } from "./middlewares/auditLogger";
 import { errorHandler } from "./middlewares/errorHandler";
 import { securityMiddleware } from "./middlewares/security";
 import { sanitizeInput } from "./middlewares/sanitize";
+import { startPushJobs } from "./jobs/pushJob";
 
 const app = express();
 
@@ -23,6 +24,8 @@ app.use(routes);
 app.get("/", (req, res) => {
   res.send("API rodando");
 });
+
+startPushJobs();
 
 app.listen(3001, () => {
   console.log("Servidor rodando na porta 3001");
