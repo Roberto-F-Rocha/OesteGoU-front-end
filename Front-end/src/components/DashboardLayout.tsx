@@ -31,6 +31,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
               <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
             </div>
+            <NotificationBell />
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground">
             <LogOut className="w-4 h-4 mr-2" /> Sair
@@ -76,6 +78,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
         </div>
       </aside>
 
+      {/* Mobile header */}
       <div className="flex-1 flex flex-col">
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
@@ -92,10 +95,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
           </div>
         </header>
 
-        <header className="hidden md:flex items-center justify-end p-4 border-b border-border bg-card">
-          <NotificationBell />
-        </header>
-
+        {/* Mobile nav overlay */}
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
