@@ -39,11 +39,6 @@ const norm = (s: string) =>
 const seedKey = (city: string, university: string) =>
   `${norm(city)}::${norm(university)}`;
 
-/**
- * Garante que existam pontos padrão (1 ida + 1 volta) para
- * (cidade, universidade) quando o admin ainda não cadastrou nada.
- * Usa os defaults conhecidos em institutionDefaults.
- */
 function ensureDefaults(city: string, university: string) {
   const key = seedKey(city, university);
   if (seededKeys.has(key)) return;
@@ -89,10 +84,36 @@ export function listPickupPoints(
   );
 }
 
-/**
- * Retorna o ponto único quando só existe 1 cadastrado para a rota,
- * ou null quando há múltiplas opções (aluno deve escolher).
- */
+export function listDeparturePointsByCity(city: string): PickupPoint[] {
+  const cityPoints = points.filter(
+    (p) => norm(p.city) === norm(city) && p.kind === "departure",
+  );
+
+  if (cityPoints.length > 0) {
+    const unique = new Map<string, PickupPoint>();
+    cityPoints.forEach((point) => {
+      const key = norm(point.label);
+      if (!unique.has(key)) unique.set(key, point);
+    });
+    return Array.from(unique.values());
+  }
+
+  return [
+    {
+      id: `default-departure-${norm(city)}`,
+      city,
+      university: "",
+      kind: "departure",
+      label: city,
+      isDefault: true,
+    },
+  ];
+}
+
+export function listReturnPointsByUniversity(city: string, university: string): PickupPoint[] {
+  return listPickupPoints(city, university, "return");
+}
+
 export function getSinglePickupPoint(
   city: string,
   university: string,
