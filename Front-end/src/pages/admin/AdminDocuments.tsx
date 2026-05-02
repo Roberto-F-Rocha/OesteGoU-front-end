@@ -21,7 +21,6 @@ interface AdminDocument {
   filePath?: string | null;
   type?: "profile_photo" | "enrollment_proof" | "driver_license" | "general" | string;
   mimeType?: string | null;
-  sizeBytes?: number | null;
   status?: "pending" | "approved" | "rejected" | string;
   moderationStatus?: string | null;
   moderationReason?: string | null;
@@ -33,13 +32,6 @@ interface AdminDocument {
     role: "admin" | "student" | "driver";
     city?: { name: string; state: string } | null;
   } | null;
-}
-
-function formatFileSize(size?: number | null) {
-  if (!size) return "Tamanho não informado";
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function documentTypeLabel(type?: string) {
@@ -108,14 +100,12 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
       const ownerName = doc.user?.nome ?? "";
       const ownerEmail = doc.user?.email ?? "";
       const type = documentTypeLabel(doc.type);
-      const city = doc.user?.city?.name ?? "";
 
       return (
         fileName.toLowerCase().includes(q) ||
         ownerName.toLowerCase().includes(q) ||
         ownerEmail.toLowerCase().includes(q) ||
-        type.toLowerCase().includes(q) ||
-        city.toLowerCase().includes(q)
+        type.toLowerCase().includes(q)
       );
     });
   }, [documents, query]);
@@ -138,7 +128,7 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por usuário, e-mail, arquivo, cidade ou tipo..."
+            placeholder="Buscar por usuário, e-mail, arquivo ou tipo..."
             className="pl-9"
           />
         </div>
@@ -146,15 +136,13 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[920px]">
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Documento</TableHead>
                 <TableHead>Usuário</TableHead>
-                <TableHead>Cidade</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Tamanho</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -163,68 +151,59 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Carregando documentos...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhum documento encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((doc) => (
                   <TableRow key={doc.id}>
-                    <TableCell>
+                    <TableCell className="max-w-[260px]">
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-foreground">{doc.fileName}</p>
-                          <p className="text-xs text-muted-foreground">{doc.mimeType ?? "Tipo não informado"}</p>
+                        <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground" title={doc.fileName}>{doc.fileName}</p>
+                          <p className="truncate text-xs text-muted-foreground" title={doc.mimeType ?? undefined}>{doc.mimeType ?? "Tipo não informado"}</p>
                         </div>
                       </div>
                     </TableCell>
 
-                    <TableCell>
-                      <div>
-                        <p className="text-sm text-foreground">{doc.user?.nome ?? "Usuário não informado"}</p>
-                        <p className="text-xs text-muted-foreground">{doc.user?.email ?? "E-mail não informado"}</p>
+                    <TableCell className="max-w-[240px]">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-foreground" title={doc.user?.nome ?? undefined}>{doc.user?.nome ?? "Usuário não informado"}</p>
+                        <p className="truncate text-xs text-muted-foreground" title={doc.user?.email ?? undefined}>{doc.user?.email ?? "E-mail não informado"}</p>
                       </div>
                     </TableCell>
 
                     <TableCell>
-                      <div>
-                        <p className="text-sm text-foreground">{doc.user?.city?.name ?? cityName ?? "Não informada"}</p>
-                        <p className="text-xs text-muted-foreground">{doc.user?.city?.state ?? stateName ?? "UF não informada"}</p>
-                      </div>
+                      <Badge variant="secondary" className="whitespace-nowrap">{documentTypeLabel(doc.type)}</Badge>
                     </TableCell>
 
                     <TableCell>
-                      <Badge variant="secondary">{documentTypeLabel(doc.type)}</Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge variant={doc.status === "rejected" ? "destructive" : doc.status === "approved" ? "default" : "secondary"}>
+                      <Badge variant={doc.status === "rejected" ? "destructive" : doc.status === "approved" ? "default" : "secondary"} className="whitespace-nowrap">
                         {statusLabel(doc.status)}
                       </Badge>
                     </TableCell>
 
-                    <TableCell>{formatFileSize(doc.sizeBytes)}</TableCell>
-
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("pt-BR") : "Não informado"}
                     </TableCell>
 
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 whitespace-nowrap">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => openProtectedFile(`/documents/${doc.id}/view`)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Visualizar
+                          Ver
                         </Button>
 
                         <Button
