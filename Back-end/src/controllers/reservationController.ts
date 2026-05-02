@@ -11,23 +11,58 @@ function tripLabel(type) {
 
 async function notifyUser(userId, title, message, type = "info", metadata = {}) {
   return prisma.notification.create({
-    data: {
-      userId,
-      title,
-      message,
-      type,
-      metadata,
-    },
+    data: { userId, title, message, type, metadata },
   });
+}
+
+async function notifyUsers(userIds, title, message, type = "info", metadata = {}) {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueUserIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: uniqueUserIds.map((userId) => ({ userId, title, message, type, metadata })),
+  });
+}
+
+async function notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity }) {
+  const admins = await prisma.user.findMany({
+    where: { role: "admin", cityId: route.cityId, status: "active" },
+    select: { id: true },
+  });
+
+  const existingPassengers = await prisma.reservation.findMany({
+    where: { routeId: route.id, status: "confirmed" },
+    select: { userId: true },
+  });
+
+  const recipients = [
+    reservation.userId,
+    route.driverId,
+    ...admins.map((admin) => admin.id),
+    ...existingPassengers.map((passenger) => passenger.userId),
+  ];
+
+  await notifyUsers(
+    recipients,
+    "Ônibus superlotado",
+    `${dayOfWeek ?? "Dia selecionado"}: a ${tripLabel(schedule.type)} às ${schedule.time} ultrapassou a capacidade do ônibus (${currentCount}/${capacity}). A reserva foi mantida para dar visibilidade ao problema.`,
+    "warning",
+    {
+      reservationId: reservation.id,
+      scheduleId: schedule.id,
+      routeId: route.id,
+      dayOfWeek,
+      capacity,
+      currentCount,
+      overcapacity: true,
+    },
+  );
 }
 
 export async function createReservation(req, res) {
   const user = req.user;
   const parsed = createReservationSchema.safeParse(req.body);
 
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
-  }
+  if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
 
   const { scheduleId, routeId, pickupPointId, dayOfWeek } = parsed.data;
 
@@ -48,17 +83,6 @@ export async function createReservation(req, res) {
   if (route && !route.active) return res.status(400).json({ error: "Rota inativa" });
   if (route && route.scheduleId !== scheduleId) return res.status(400).json({ error: "A rota não pertence ao horário informado" });
 
-  if (route?.vehicle?.capacity && route.reservations.length >= route.vehicle.capacity) {
-    await notifyUser(
-      user.id,
-      "Rota sem vagas",
-      `Não foi possível reservar ${tripLabel(schedule.type)} às ${schedule.time}, pois o ônibus já está lotado.`,
-      "warning",
-      { scheduleId, routeId, dayOfWeek },
-    );
-    return res.status(409).json({ error: "Não há vagas disponíveis nesta rota" });
-  }
-
   if (pickupPointId) {
     const point = await prisma.pickupPoint.findUnique({ where: { id: pickupPointId } });
     if (!point || !point.active) return res.status(404).json({ error: "Ponto não encontrado ou inativo" });
@@ -67,7 +91,6 @@ export async function createReservation(req, res) {
     if (point.type === "volta" && schedule.universityId && point.universityId !== schedule.universityId) {
       return res.status(400).json({ error: "Ponto de volta não pertence à universidade selecionada" });
     }
-
     if (routeId) {
       const routePoint = route?.points.find((item) => item.pickupPointId === pickupPointId);
       if (!routePoint) return res.status(400).json({ error: "Ponto não pertence à rota" });
@@ -86,7 +109,6 @@ export async function createReservation(req, res) {
         ],
       },
     });
-
     if (!agreement) return res.status(403).json({ error: "Sua cidade não possui vínculo ativo com a cidade desta rota" });
   }
 
@@ -104,13 +126,22 @@ export async function createReservation(req, res) {
     },
   });
 
+  const capacity = route?.vehicle?.capacity ?? null;
+  const currentCount = (route?.reservations.length ?? 0) + 1;
+  const isOvercapacity = Boolean(capacity && currentCount > capacity);
+  const reachedCapacity = Boolean(capacity && currentCount === capacity);
+
   await notifyUser(
     user.id,
-    "Horário confirmado",
-    `${dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(reservation.schedule.type)} para ${reservation.schedule.university?.name ?? "universidade"} às ${reservation.schedule.time} foi confirmada.`,
-    "success",
-    { reservationId: reservation.id, scheduleId, routeId, pickupPointId, dayOfWeek },
+    isOvercapacity ? "Horário confirmado com ônibus superlotado" : "Horário confirmado",
+    `${dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(reservation.schedule.type)} para ${reservation.schedule.university?.name ?? "universidade"} às ${reservation.schedule.time} foi confirmada.${isOvercapacity ? ` Atenção: o ônibus está acima da capacidade (${currentCount}/${capacity}).` : ""}`,
+    isOvercapacity ? "warning" : "success",
+    { reservationId: reservation.id, scheduleId, routeId, pickupPointId, dayOfWeek, capacity, currentCount, overcapacity: isOvercapacity },
   );
+
+  if (route && capacity && (reachedCapacity || isOvercapacity)) {
+    await notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity });
+  }
 
   await createAuditLog({
     userId: user.id,
@@ -118,8 +149,8 @@ export async function createReservation(req, res) {
     action: "create",
     entity: "Reservation",
     entityId: reservation.id,
-    description: "Aluno criou uma reserva de transporte",
-    metadata: { scheduleId, routeId, pickupPointId },
+    description: isOvercapacity ? "Aluno criou reserva acima da capacidade do ônibus" : "Aluno criou uma reserva de transporte",
+    metadata: { scheduleId, routeId, pickupPointId, capacity, currentCount, overcapacity: isOvercapacity },
     ...getRequestAuditData(req, res),
   });
 
@@ -147,7 +178,7 @@ export async function cancelReservation(req, res) {
   const { id } = parsed.data;
   const reservation = await prisma.reservation.findUnique({
     where: { id },
-    include: { schedule: { include: { university: true } }, route: true, pickupPoint: true },
+    include: { schedule: { include: { university: true } }, route: { include: { vehicle: true } }, pickupPoint: true },
   });
   if (!reservation) return res.status(404).json({ error: "Reserva não encontrada" });
   if (reservation.userId !== user.id && user.role !== "admin") return res.status(403).json({ error: "Você não tem permissão para cancelar esta reserva" });
