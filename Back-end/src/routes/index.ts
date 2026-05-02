@@ -3,7 +3,13 @@ import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
 import { getMyDocuments } from "../controllers/documentController";
-import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../controllers/notificationController";
+import {
+  getMyNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  clearMyNotifications,
+} from "../controllers/notificationController";
 import { subscribePush, unsubscribePush } from "../controllers/pushController";
 import { sendPush, getPushHistory } from "../controllers/adminPushController";
 import { getAnalyticsDashboard } from "../controllers/adminAnalyticsController";
@@ -60,8 +66,10 @@ router.post("/upload", auth, upload.single("file"), uploadDocument);
 router.get("/documents/my", auth, getMyDocuments);
 
 router.get("/notifications/my", auth, getMyNotifications);
-router.patch("/notifications/:id/read", auth, markNotificationAsRead);
 router.patch("/notifications/read-all", auth, markAllNotificationsAsRead);
+router.delete("/notifications/clear", auth, clearMyNotifications);
+router.patch("/notifications/:id/read", auth, markNotificationAsRead);
+router.delete("/notifications/:id", auth, deleteNotification);
 
 router.post("/push/subscribe", auth, subscribePush);
 router.delete("/push/unsubscribe", auth, unsubscribePush);
