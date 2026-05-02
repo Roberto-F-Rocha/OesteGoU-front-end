@@ -15,6 +15,7 @@ import { getDriverRoutes, notifyDriverPendingStudents } from "../controllers/dri
 import { uploadDocument } from "../controllers/uploadController";
 import { listCityAgreements, createCityAgreement, updateCityAgreementStatus, listCities } from "../controllers/cityAgreementController";
 import { createReservation, getMyReservations, cancelReservation, confirmReservation } from "../controllers/reservationController";
+import { createMaintenanceTicket, getMyMaintenanceTickets, listMaintenanceTickets, updateMaintenanceTicket } from "../controllers/maintenanceTicketController";
 import { getAdminDashboard, listAdminUsers, updateUserStatus, createDriver, listVehicles, createVehicle, updateVehicle, listSchedules, createSchedule, updateSchedule, listPickupPoints, createPickupPoint, updatePickupPoint, listRoutes, createRoute, updateRoute, listAuditLogs, listUniversities, createUniversity, updateUniversity } from "../controllers/adminController";
 
 const router = Router();
@@ -48,6 +49,10 @@ router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
 router.patch("/reservations/:id/confirm", auth, confirmReservation);
+router.post("/maintenance-tickets", auth, createMaintenanceTicket);
+router.get("/maintenance-tickets/my", auth, getMyMaintenanceTickets);
+router.get("/maintenance-tickets", auth, cityAccess, listMaintenanceTickets);
+router.patch("/maintenance-tickets/:id", auth, cityAccess, updateMaintenanceTicket);
 router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
 router.get("/admin/users", auth, cityAccess, listAdminUsers);
 router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
