@@ -4,7 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import StudentTrip from "./student/StudentTrip";
 import StudentSchedules from "./student/StudentSchedules";
 import StudentNotifications from "./student/StudentNotifications";
-import MyDocuments from "../documents/MyDocuments";
+import MyDocuments from "./documents/MyDocuments";
 
 const navItems = [
   { label: "Minha Viagem", path: "/aluno", icon: Bus },
