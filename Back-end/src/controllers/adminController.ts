@@ -468,3 +468,239 @@ export async function createUniversity(req, res) {
   });
   return res.json(uni);
 }
+
+export async function updateUniversity(req, res) {
+  if (!ensureAdmin(req, res)) return;
+
+  const id = parseId(req.params.id);
+  const { name, cityName, cityId } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const university = await prisma.university.findUnique({
+    where: { id },
+  });
+
+  if (!university) {
+    return res.status(404).json({ error: "Universidade não encontrada" });
+  }
+
+  const updated = await prisma.university.update({
+    where: { id },
+    data: {
+      name,
+      cityName,
+      cityId: cityId ? Number(cityId) : undefined,
+    },
+    include: {
+      city: true,
+    },
+  });
+
+  await createAuditLog({
+    userId: req.user.id,
+    cityId: req.user.cityId,
+    action: "update",
+    entity: "University",
+    entityId: id,
+    description: "Universidade atualizada",
+    ...getRequestAuditData(req, res),
+  });
+
+  return res.json(updated);
+}
+
+export async function updateSchedule(req, res) {
+  if (!ensureAdmin(req, res)) return;
+
+  const id = parseId(req.params.id);
+  const { time, type, universityId, active } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const schedule = await prisma.schedule.findUnique({
+    where: { id },
+  });
+
+  if (!schedule) {
+    return res.status(404).json({ error: "Horário não encontrado" });
+  }
+
+  const updated = await prisma.schedule.update({
+    where: { id },
+    data: {
+      time,
+      type,
+      universityId: universityId !== undefined ? Number(universityId) : undefined,
+      active,
+    },
+    include: {
+      university: true,
+    },
+  });
+
+  await createAuditLog({
+    userId: req.user.id,
+    cityId: req.user.cityId,
+    action: "update",
+    entity: "Schedule",
+    entityId: id,
+    description: "Horário atualizado",
+    ...getRequestAuditData(req, res),
+  });
+
+  return res.json(updated);
+}
+
+export async function updatePickupPoint(req, res) {
+  if (!ensureAdmin(req, res)) return;
+
+  const id = parseId(req.params.id);
+  const { name, address, latitude, longitude, cityId } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const cityIds = req.allowedCities ?? [req.user.cityId];
+
+  const point = await prisma.pickupPoint.findUnique({
+    where: { id },
+  });
+
+  if (!point || !cityIds.includes(point.cityId)) {
+    return res.status(404).json({ error: "Ponto de embarque não encontrado" });
+  }
+
+  if (cityId && !cityIds.includes(Number(cityId))) {
+    return res.status(403).json({ error: "Cidade não permitida" });
+  }
+
+  const updated = await prisma.pickupPoint.update({
+    where: { id },
+    data: {
+      name,
+      address,
+      latitude: latitude !== undefined ? Number(latitude) : undefined,
+      longitude: longitude !== undefined ? Number(longitude) : undefined,
+      cityId: cityId !== undefined ? Number(cityId) : undefined,
+    },
+    include: {
+      city: true,
+    },
+  });
+
+  await createAuditLog({
+    userId: req.user.id,
+    cityId: req.user.cityId,
+    action: "update",
+    entity: "PickupPoint",
+    entityId: id,
+    description: "Ponto de embarque atualizado",
+    ...getRequestAuditData(req, res),
+  });
+
+  return res.json(updated);
+}
+
+export async function updateRoute(req, res) {
+  if (!ensureAdmin(req, res)) return;
+
+  const id = parseId(req.params.id);
+  const {
+    name,
+    cityId,
+    scheduleId,
+    vehicleId,
+    driverId,
+    active,
+    pointIds,
+  } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const cityIds = req.allowedCities ?? [req.user.cityId];
+
+  const route = await prisma.transportRoute.findUnique({
+    where: { id },
+  });
+
+  if (!route || !cityIds.includes(route.cityId)) {
+    return res.status(404).json({ error: "Rota não encontrada" });
+  }
+
+  if (cityId && !cityIds.includes(Number(cityId))) {
+    return res.status(403).json({ error: "Cidade não permitida" });
+  }
+
+  const updated = await prisma.transportRoute.update({
+    where: { id },
+    data: {
+      name,
+      cityId: cityId !== undefined ? Number(cityId) : undefined,
+      scheduleId: scheduleId !== undefined ? Number(scheduleId) : undefined,
+      vehicleId: vehicleId !== undefined ? Number(vehicleId) : undefined,
+      driverId: driverId !== undefined ? Number(driverId) : undefined,
+      active,
+    },
+    include: {
+      city: true,
+      schedule: {
+        include: {
+          university: true,
+        },
+      },
+      vehicle: true,
+      driver: {
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          phone: true,
+        },
+      },
+      points: {
+        include: {
+          pickupPoint: true,
+        },
+        orderBy: {
+          order: "asc",
+        },
+      },
+    },
+  });
+
+  if (Array.isArray(pointIds)) {
+    await prisma.routePoint.deleteMany({
+      where: {
+        routeId: id,
+      },
+    });
+
+    await prisma.routePoint.createMany({
+      data: pointIds.map((pointId, index) => ({
+        routeId: id,
+        pickupPointId: Number(pointId),
+        order: index + 1,
+      })),
+    });
+  }
+
+  await createAuditLog({
+    userId: req.user.id,
+    cityId: req.user.cityId,
+    action: "update",
+    entity: "TransportRoute",
+    entityId: id,
+    description: "Rota atualizada",
+    ...getRequestAuditData(req, res),
+  });
+
+  return res.json(updated);
+}
