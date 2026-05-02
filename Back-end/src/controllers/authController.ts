@@ -6,6 +6,15 @@ import {
   signRefreshToken,
 } from "../services/tokenService";
 
+function getPhotoUrl(photo?: string | null) {
+  if (!photo) return null;
+  if (photo.startsWith("db:")) {
+    const id = photo.replace("db:", "");
+    return `/documents/${id}/view`;
+  }
+  return photo;
+}
+
 export async function login(req, res) {
   const { email, senha } = req.body;
 
@@ -47,10 +56,12 @@ export async function login(req, res) {
     user: {
       id: user.id,
       name: user.nome,
+      nome: user.nome,
       email: user.email,
       role: user.role,
       status: user.status,
       cityId: user.cityId,
+      photo: getPhotoUrl(user.photo),
     },
   });
 }
@@ -68,6 +79,7 @@ export async function me(req, res) {
       status: true,
       cityId: true,
       city: true,
+      photo: true,
     },
   });
 
@@ -78,11 +90,13 @@ export async function me(req, res) {
   return res.json({
     id: user.id,
     name: user.nome,
+    nome: user.nome,
     email: user.email,
     role: user.role,
     status: user.status,
     cityId: user.cityId,
     city: user.city,
+    photo: getPhotoUrl(user.photo),
   });
 }
 
@@ -109,21 +123,14 @@ export async function refresh(req, res) {
     }
 
     if (!session.user || session.user.status !== "active") {
-      await prisma.session.deleteMany({
-        where: { userId: payload.id },
-      });
-
+      await prisma.session.deleteMany({ where: { userId: payload.id } });
       return res.status(403).json({ error: "Usuário não autorizado" });
     }
 
     const accessSecret = process.env.JWT_ACCESS_SECRET;
     if (!accessSecret) throw new Error("JWT_ACCESS_SECRET não definido");
 
-    const newAccessToken = jwt.sign(
-      { id: payload.id },
-      accessSecret,
-      { expiresIn: "15m" }
-    );
+    const newAccessToken = jwt.sign({ id: payload.id }, accessSecret, { expiresIn: "15m" });
 
     return res.json({ accessToken: newAccessToken });
   } catch {
@@ -138,9 +145,7 @@ export async function logout(req, res) {
     return res.status(400).json({ error: "Refresh token é obrigatório" });
   }
 
-  await prisma.session.deleteMany({
-    where: { refreshToken },
-  });
+  await prisma.session.deleteMany({ where: { refreshToken } });
 
   return res.status(204).send();
 }
