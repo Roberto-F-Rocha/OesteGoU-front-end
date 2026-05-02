@@ -1,10 +1,11 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bus, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import { api } from "@/lib/api";
 
 interface NavItem {
   label: string;
@@ -23,15 +24,38 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  async function loadUnreadCount() {
+    try {
+      const { data } = await api.get("/notifications/my");
+      setUnreadCount(data.unreadCount ?? 0);
+    } catch {
+      setUnreadCount(0);
+    }
+  }
+
+  useEffect(() => {
+    loadUnreadCount();
+    const interval = window.setInterval(loadUnreadCount, 20000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    loadUnreadCount();
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
 
+  function itemBadge(item: NavItem) {
+    return item.path.includes("notificacoes") && unreadCount > 0 ? unreadCount : 0;
+  }
+
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
@@ -45,6 +69,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map(item => {
             const active = location.pathname === item.path;
+            const badge = itemBadge(item);
             return (
               <button
                 key={item.path}
@@ -56,7 +81,8 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
                 }`}
               >
                 <item.icon className="w-5 h-5" />
-                {item.label}
+                <span className="flex-1 text-left">{item.label}</span>
+                {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">{badge > 9 ? "9+" : badge}</span>}
               </button>
             );
           })}
@@ -78,7 +104,6 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
         </div>
       </aside>
 
-      {/* Mobile header */}
       <div className="flex-1 flex flex-col">
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
@@ -95,7 +120,6 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
           </div>
         </header>
 
-        {/* Mobile nav overlay */}
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -106,6 +130,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
             >
               {navItems.map(item => {
                 const active = location.pathname === item.path;
+                const badge = itemBadge(item);
                 return (
                   <button
                     key={item.path}
@@ -115,7 +140,8 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
                     }`}
                   >
                     <item.icon className="w-5 h-5" />
-                    {item.label}
+                    <span className="flex-1 text-left">{item.label}</span>
+                    {badge > 0 && <span className="min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">{badge > 9 ? "9+" : badge}</span>}
                   </button>
                 );
               })}
