@@ -1,0 +1,17 @@
+DELETE FROM "AnalyticsEvent";
+DELETE FROM "PushSendLog";
+DELETE FROM "PushSubscription";
+DELETE FROM "Notification";
+DELETE FROM "AuditLog";
+DELETE FROM "UserDocument";
+DELETE FROM "Session";
+DELETE FROM "Reservation";
+DELETE FROM "RoutePoint";
+DELETE FROM "TransportRoute";
+DELETE FROM "Schedule";
+DELETE FROM "Vehicle";
+DELETE FROM "PickupPoint";
+DELETE FROM "University";
+DELETE FROM "CityAgreement";
+DELETE FROM "User";
+DELETE FROM "City";
