@@ -10,3 +10,11 @@ export const loginRateLimit = rateLimit({
     error: "Muitas tentativas de login. Tente novamente mais tarde.",
   },
 });
+
+export const maintenanceTicketRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: {
+    error: "Muitos chamados enviados em pouco tempo. Aguarde alguns instantes.",
+  },
+});
