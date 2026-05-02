@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 interface NotificationItem {
@@ -18,8 +19,23 @@ interface NotificationItem {
   createdAt: string;
 }
 
+function notificationHome(role?: string) {
+  if (role === "driver") return "/motorista/notificacoes";
+  if (role === "admin") return "/admin/push";
+  return "/aluno/notificacoes";
+}
+
+function normalizeNotificationLink(link: string | null | undefined, role?: string) {
+  if (!link) return notificationHome(role);
+  if (link.startsWith("/driver/routes") || link.startsWith("/driver")) return "/motorista";
+  if (link.startsWith("/student")) return link.replace("/student", "/aluno");
+  if (link === "/notifications" || link === "/notificacoes") return notificationHome(role);
+  return link;
+}
+
 export default function NotificationBell() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,11 +50,7 @@ export default function NotificationBell() {
       setNotifications(data.notifications ?? []);
       setUnreadCount(data.unreadCount ?? 0);
     } catch {
-      toast({
-        title: "Erro ao carregar notificações",
-        description: "Não foi possível buscar suas notificações.",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao carregar notificações", description: "Não foi possível buscar suas notificações.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -86,12 +98,12 @@ export default function NotificationBell() {
   async function openNotification(notification: NotificationItem) {
     if (!notification.readAt) await markAsRead(notification.id);
     setOpen(false);
-    navigate(notification.link || "/aluno/notificacoes");
+    navigate(normalizeNotificationLink(notification.link, user?.role));
   }
 
   function goToNotifications() {
     setOpen(false);
-    navigate("/aluno/notificacoes");
+    navigate(notificationHome(user?.role));
   }
 
   return (
