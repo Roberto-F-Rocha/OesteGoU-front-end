@@ -51,4 +51,24 @@ const App = () => (
   </QueryClientProvider>
 );
 
+useEffect(() => {
+  socket.on("notification:new", (data) => {
+    console.log("NOTIF:", data);
+  });
+
+  socket.on("route:occupancy-updated", (data) => {
+    console.log("LOTAÇÃO:", data);
+  });
+
+  socket.on("route:capacity-alert", (data) => {
+    alert("Ônibus lotado!");
+  });
+
+  socket.on("trip:reminder", (data) => {
+    alert(data.message);
+  });
+
+  return () => socket.disconnect();
+}, []);
+
 export default App;
