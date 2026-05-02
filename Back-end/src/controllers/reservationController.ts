@@ -1,9 +1,22 @@
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
+import {
+  createReservationSchema,
+  cancelReservationSchema,
+} from "../validators/reservationSchemas";
 
 export async function createReservation(req, res) {
   const user = req.user;
-  const { scheduleId, routeId, pickupPointId } = req.body;
+  const parsed = createReservationSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Dados inválidos",
+      details: parsed.error.flatten(),
+    });
+  }
+
+  const { scheduleId, routeId, pickupPointId } = parsed.data;
 
   if (!user?.cityId) {
     return res.status(403).json({ error: "Usuário sem cidade definida" });
@@ -13,16 +26,42 @@ export async function createReservation(req, res) {
     return res.status(403).json({ error: "Apenas alunos podem criar reservas" });
   }
 
-  if (!scheduleId) {
-    return res.status(400).json({ error: "Horário é obrigatório" });
+  const schedule = await prisma.schedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || !schedule.active) {
+    return res.status(404).json({ error: "Horário não encontrado ou inativo" });
   }
 
   const route = routeId
-    ? await prisma.transportRoute.findUnique({ where: { id: Number(routeId) } })
+    ? await prisma.transportRoute.findUnique({ where: { id: routeId } })
     : null;
 
   if (routeId && !route) {
     return res.status(404).json({ error: "Rota não encontrada" });
+  }
+
+  if (route && !route.active) {
+    return res.status(400).json({ error: "Rota inativa" });
+  }
+
+  if (route && route.scheduleId !== scheduleId) {
+    return res.status(400).json({ error: "A rota não pertence ao horário informado" });
+  }
+
+  if (pickupPointId) {
+    const point = await prisma.pickupPoint.findUnique({ where: { id: pickupPointId } });
+    if (!point) {
+      return res.status(404).json({ error: "Ponto de embarque não encontrado" });
+    }
+
+    if (routeId) {
+      const routePoint = await prisma.routePoint.findFirst({
+        where: { routeId, pickupPointId },
+      });
+
+      if (!routePoint) {
+        return res.status(400).json({ error: "Ponto de embarque não pertence à rota" });
+      }
+    }
   }
 
   if (route && route.cityId !== user.cityId) {
@@ -44,7 +83,7 @@ export async function createReservation(req, res) {
   const existing = await prisma.reservation.findFirst({
     where: {
       userId: user.id,
-      scheduleId: Number(scheduleId),
+      scheduleId,
       status: "confirmed",
     },
   });
@@ -56,9 +95,9 @@ export async function createReservation(req, res) {
   const reservation = await prisma.reservation.create({
     data: {
       userId: user.id,
-      scheduleId: Number(scheduleId),
-      routeId: routeId ? Number(routeId) : undefined,
-      pickupPointId: pickupPointId ? Number(pickupPointId) : undefined,
+      scheduleId,
+      routeId,
+      pickupPointId,
       status: "confirmed",
     },
     include: {
@@ -100,9 +139,18 @@ export async function getMyReservations(req, res) {
 
 export async function cancelReservation(req, res) {
   const user = req.user;
-  const { id } = req.params;
+  const parsed = cancelReservationSchema.safeParse(req.params);
 
-  const reservation = await prisma.reservation.findUnique({ where: { id: Number(id) } });
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Dados inválidos",
+      details: parsed.error.flatten(),
+    });
+  }
+
+  const { id } = parsed.data;
+
+  const reservation = await prisma.reservation.findUnique({ where: { id } });
 
   if (!reservation) {
     return res.status(404).json({ error: "Reserva não encontrada" });
@@ -113,7 +161,7 @@ export async function cancelReservation(req, res) {
   }
 
   const updated = await prisma.reservation.update({
-    where: { id: Number(id) },
+    where: { id },
     data: { status: "canceled" },
   });
 
