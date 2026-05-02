@@ -31,6 +31,17 @@ export interface Shift {
 const shifts: Shift[] = [];
 const seededCities = new Set<string>();
 
+function createId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 const norm = (s: string) =>
   s
     .normalize("NFD")
@@ -49,7 +60,7 @@ function ensureSeed(city: string, state: string) {
     );
     if (exists) continue;
     shifts.push({
-      id: crypto.randomUUID(),
+      id: createId(),
       city,
       state,
       key: def.key,
