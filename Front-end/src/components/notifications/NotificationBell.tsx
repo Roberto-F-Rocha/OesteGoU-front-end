@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 interface NotificationItem {
   id: number;
@@ -41,9 +42,9 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadNotifications();
-    const interval = window.setInterval(loadNotifications, 60000);
-    return () => window.clearInterval(interval);
   }, []);
+
+  useLiveRefresh(loadNotifications, { intervalMs: 20000 });
 
   async function markAsRead(id: number) {
     try {
@@ -69,7 +70,6 @@ export default function NotificationBell() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors"
-        aria-label="Notificações"
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
@@ -80,12 +80,9 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-lg z-50 overflow-hidden">
-          <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-            <div>
-              <p className="font-heading font-semibold text-foreground">Notificações</p>
-              <p className="text-xs text-muted-foreground">{unreadCount} não lida(s)</p>
-            </div>
+        <div className="absolute right-0 mt-2 w-[320px] rounded-xl border bg-card shadow-lg z-50 overflow-hidden">
+          <div className="p-3 border-b flex items-center justify-between">
+            <p className="font-semibold">Notificações</p>
             <Button variant="ghost" size="sm" onClick={markAllAsRead} disabled={unreadCount === 0}>
               <CheckCheck className="w-4 h-4 mr-1" /> Ler todas
             </Button>
@@ -93,27 +90,20 @@ export default function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <div className="p-6 text-center text-sm flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma notificação ainda.</div>
+              <div className="p-6 text-center text-sm">Nenhuma notificação ainda.</div>
             ) : (
               notifications.map((notification) => (
                 <button
                   key={notification.id}
-                  type="button"
                   onClick={() => !notification.readAt && markAsRead(notification.id)}
-                  className="w-full text-left p-3 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors"
+                  className="w-full text-left p-3 border-b hover:bg-muted/50"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm text-foreground">{notification.title}</p>
-                    {!notification.readAt && <Badge variant="secondary" className="text-[10px]">Nova</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p>
-                  <p className="text-[11px] text-muted-foreground mt-2">
-                    {new Date(notification.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-                  </p>
+                  <p className="font-medium text-sm">{notification.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{notification.message}</p>
                 </button>
               ))
             )}
