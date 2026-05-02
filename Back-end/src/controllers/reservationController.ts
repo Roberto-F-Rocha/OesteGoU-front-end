@@ -5,6 +5,22 @@ import {
   cancelReservationSchema,
 } from "../validators/reservationSchemas";
 
+function tripLabel(type) {
+  return type === "volta" ? "volta" : "ida";
+}
+
+async function notifyUser(userId, title, message, type = "info", metadata = {}) {
+  return prisma.notification.create({
+    data: {
+      userId,
+      title,
+      message,
+      type,
+      metadata,
+    },
+  });
+}
+
 export async function createReservation(req, res) {
   const user = req.user;
   const parsed = createReservationSchema.safeParse(req.body);
@@ -33,6 +49,13 @@ export async function createReservation(req, res) {
   if (route && route.scheduleId !== scheduleId) return res.status(400).json({ error: "A rota não pertence ao horário informado" });
 
   if (route?.vehicle?.capacity && route.reservations.length >= route.vehicle.capacity) {
+    await notifyUser(
+      user.id,
+      "Rota sem vagas",
+      `Não foi possível reservar ${tripLabel(schedule.type)} às ${schedule.time}, pois o ônibus já está lotado.`,
+      "warning",
+      { scheduleId, routeId, dayOfWeek },
+    );
     return res.status(409).json({ error: "Não há vagas disponíveis nesta rota" });
   }
 
@@ -81,6 +104,14 @@ export async function createReservation(req, res) {
     },
   });
 
+  await notifyUser(
+    user.id,
+    "Horário confirmado",
+    `${dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(reservation.schedule.type)} para ${reservation.schedule.university?.name ?? "universidade"} às ${reservation.schedule.time} foi confirmada.`,
+    "success",
+    { reservationId: reservation.id, scheduleId, routeId, pickupPointId, dayOfWeek },
+  );
+
   await createAuditLog({
     userId: user.id,
     cityId: user.cityId,
@@ -114,10 +145,22 @@ export async function cancelReservation(req, res) {
   const parsed = cancelReservationSchema.safeParse(req.params);
   if (!parsed.success) return res.status(400).json({ error: "Dados inválidos", details: parsed.error.flatten() });
   const { id } = parsed.data;
-  const reservation = await prisma.reservation.findUnique({ where: { id } });
+  const reservation = await prisma.reservation.findUnique({
+    where: { id },
+    include: { schedule: { include: { university: true } }, route: true, pickupPoint: true },
+  });
   if (!reservation) return res.status(404).json({ error: "Reserva não encontrada" });
   if (reservation.userId !== user.id && user.role !== "admin") return res.status(403).json({ error: "Você não tem permissão para cancelar esta reserva" });
   const updated = await prisma.reservation.update({ where: { id }, data: { status: "canceled" } });
+
+  await notifyUser(
+    reservation.userId,
+    "Horário cancelado",
+    `${reservation.dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(reservation.schedule.type)} às ${reservation.schedule.time} foi removida da sua semana.`,
+    "warning",
+    { reservationId: reservation.id, scheduleId: reservation.scheduleId, routeId: reservation.routeId, dayOfWeek: reservation.dayOfWeek },
+  );
+
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "cancel", entity: "Reservation", entityId: updated.id, description: "Reserva cancelada", ...getRequestAuditData(req, res) });
   return res.json(updated);
 }
