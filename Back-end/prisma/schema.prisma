@@ -39,6 +39,26 @@ enum ReservationStatus {
   absent
 }
 
+enum DocumentType {
+  profile_photo
+  enrollment_proof
+  driver_license
+  general
+}
+
+enum DocumentStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ModerationStatus {
+  not_required
+  pending
+  approved
+  rejected
+}
+
 enum AuditAction {
   login
   logout
@@ -117,15 +137,41 @@ model User {
   updatedAt    DateTime   @updatedAt
 
   city                   City?           @relation(fields: [cityId], references: [id])
+  documents              UserDocument[]
   reservations           Reservation[]
   sessions               Session[]
   auditLogs              AuditLog[]
   requestedAgreements    CityAgreement[] @relation("AgreementRequestedBy")
   approvedAgreements     CityAgreement[] @relation("AgreementApprovedBy")
   drivenRoutes           TransportRoute[] @relation("RouteDriver")
+  reviewedDocuments      UserDocument[]   @relation("DocumentReviewedBy")
 
   @@index([role])
   @@index([cityId])
+  @@index([status])
+}
+
+model UserDocument {
+  id               Int              @id @default(autoincrement())
+  userId           Int
+  type             DocumentType
+  status           DocumentStatus   @default(pending)
+  fileName         String
+  filePath         String
+  mimeType         String
+  sizeBytes        Int
+  moderationStatus ModerationStatus @default(not_required)
+  moderationReason String?
+  reviewedById     Int?
+  reviewedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user       User  @relation(fields: [userId], references: [id])
+  reviewedBy User? @relation("DocumentReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([userId])
+  @@index([type])
   @@index([status])
 }
 
