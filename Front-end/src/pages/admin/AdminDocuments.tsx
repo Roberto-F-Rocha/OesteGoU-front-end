@@ -203,7 +203,7 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
                           onClick={() => openProtectedFile(`/documents/${doc.id}/view`)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Ver
+                          Visualizar
                         </Button>
 
                         <Button
