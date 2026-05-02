@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bus, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 interface NavItem {
   label: string;
@@ -30,7 +31,6 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar border-r border-sidebar-border">
         <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
@@ -76,7 +76,6 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
         </div>
       </aside>
 
-      {/* Mobile header */}
       <div className="flex-1 flex flex-col">
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
@@ -85,12 +84,18 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
             </div>
             <span className="font-heading font-bold text-sm">OesteGoU</span>
           </div>
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground">
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground">
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </header>
 
-        {/* Mobile nav overlay */}
+        <header className="hidden md:flex items-center justify-end p-4 border-b border-border bg-card">
+          <NotificationBell />
+        </header>
+
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
