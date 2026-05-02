@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import {
-  Activity,
   Bell,
   Bus,
   Calendar,
@@ -20,7 +19,6 @@ import AdminFleet from "./admin/AdminFleet";
 import AdminUniversities from "./admin/AdminUniversities";
 import AdminShifts from "./admin/AdminShifts";
 import AdminPush from "./admin/AdminPush";
-import AdminAnalytics from "./admin/AdminAnalytics";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -35,8 +33,7 @@ export default function AdminDashboard() {
     { label: "Horários", path: "/admin/horarios", icon: Calendar },
     { label: "Turnos", path: "/admin/turnos", icon: Clock },
     { label: "Universidades", path: "/admin/universidade", icon: School },
-    { label: "Push", path: "/admin/push", icon: Bell },
-    { label: "Analytics", path: "/admin/analytics", icon: Activity },
+    { label: "Notificação", path: "/admin/push", icon: Bell },
   ];
 
   return (
@@ -49,11 +46,10 @@ export default function AdminDashboard() {
         <Route path="horarios" element={<AdminSchedules adminCity={adminCity} adminState={adminState} />} />
         <Route path="turnos" element={<AdminShifts adminCity={adminCity} adminState={adminState} />} />
         <Route path="universidade" element={<AdminUniversities adminCity={adminCity} adminState={adminState} />} />
-
         <Route path="push" element={<AdminPush />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
 
-        <Route path="bi" element={<Navigate to="/admin/analytics" replace />} />
+        <Route path="analytics" element={<Navigate to="/admin" replace />} />
+        <Route path="bi" element={<Navigate to="/admin" replace />} />
         <Route path="universidades" element={<Navigate to="/admin/universidade" replace />} />
         <Route path="escalas" element={<Navigate to="/admin/horarios" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
