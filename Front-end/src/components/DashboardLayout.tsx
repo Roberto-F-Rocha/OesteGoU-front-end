@@ -19,6 +19,36 @@ interface DashboardLayoutProps {
   title: string;
 }
 
+function getPhotoUrl(photo?: string | null) {
+  if (!photo) return null;
+  if (photo.startsWith("http") || photo.startsWith("blob:")) return photo;
+  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+  return `${apiUrl}${photo.startsWith("/") ? photo : `/${photo}`}`;
+}
+
+function UserAvatar({ name, photo }: { name?: string; photo?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const photoUrl = !failed ? getPhotoUrl(photo) : null;
+  const initial = name?.trim()?.[0]?.toUpperCase() ?? "U";
+
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={name ? `Foto de ${name}` : "Foto de perfil"}
+        onError={() => setFailed(true)}
+        className="w-8 h-8 rounded-full object-cover border border-sidebar-border bg-sidebar-primary/20 shrink-0"
+      />
+    );
+  }
+
+  return (
+    <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary font-heading font-bold text-sm shrink-0">
+      {initial}
+    </div>
+  );
+}
+
 export default function DashboardLayout({ children, navItems, title }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
@@ -70,9 +100,7 @@ export default function DashboardLayout({ children, navItems, title }: Dashboard
         </nav>
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary font-heading font-bold text-sm">
-              {user?.name?.[0]}
-            </div>
+            <UserAvatar name={user?.name} photo={user?.photo} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
               <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
