@@ -34,6 +34,13 @@ import {
   listAuditLogs,
 } from "../controllers/adminController";
 
+import multer from "multer";
+import { uploadDocument } from "../controllers/uploadController";
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+router.post("/upload", auth, upload.single("file"), uploadDocument);
+
 const router = Router();
 
 router.post("/auth/login", loginRateLimit, login);
