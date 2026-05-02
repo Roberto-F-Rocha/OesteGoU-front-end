@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 interface Reservation {
   id: number;
   status: "confirmed" | "canceled" | "absent";
+  dayOfWeek?: string | null;
   schedule?: { id: number; time: string; type: "ida" | "volta"; university?: { name: string } | null };
   route?: {
     id: number;
@@ -23,7 +24,19 @@ interface Reservation {
 }
 
 interface Passenger { nome: string; instituicao?: string | null; ponto?: string | null; }
+type WeekViewMode = "todos" | "dia";
+
+const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const WEEK_VIEW_KEY = "oestegou_student_trip_week_view_mode";
+const WEEK_DAY_KEY = "oestegou_student_trip_selected_week_day";
+
 function tripLabel(type?: string) { return type === "volta" ? "Volta" : "Ida"; }
+
+function todayName() {
+  const map = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const day = map[new Date().getDay()];
+  return DAYS.includes(day) ? day : "Segunda";
+}
 
 function statusBadge(status: Reservation["status"]) {
   if (status === "confirmed") return { label: "Presença confirmada", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
@@ -38,29 +51,45 @@ export default function StudentTrip() {
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [weekViewMode, setWeekViewMode] = useState<WeekViewMode>(() => {
+    const saved = localStorage.getItem(WEEK_VIEW_KEY);
+    return saved === "dia" ? "dia" : "todos";
+  });
+  const [selectedWeekDay, setSelectedWeekDay] = useState(() => {
+    const saved = localStorage.getItem(WEEK_DAY_KEY);
+    return saved && DAYS.includes(saved) ? saved : todayName();
+  });
 
   const today = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
-  const visibleReservations = useMemo(() => {
-    const grouped = new Map<number, Reservation>();
+  function updateWeekViewMode(mode: WeekViewMode) {
+    setWeekViewMode(mode);
+    localStorage.setItem(WEEK_VIEW_KEY, mode);
+  }
 
-    reservations.forEach((reservation) => {
-      const scheduleId = reservation.schedule?.id;
-      if (!scheduleId) return;
+  function updateSelectedWeekDay(day: string) {
+    setSelectedWeekDay(day);
+    localStorage.setItem(WEEK_DAY_KEY, day);
+  }
 
-      const current = grouped.get(scheduleId);
-      if (!current) {
-        grouped.set(scheduleId, reservation);
-        return;
-      }
+  const activeReservations = useMemo(
+    () => reservations.filter((reservation) => reservation.status === "confirmed"),
+    [reservations],
+  );
 
-      if (reservation.status === "confirmed" && current.status !== "confirmed") {
-        grouped.set(scheduleId, reservation);
-      }
+  const groupedReservations = useMemo(() => {
+    const grouped: Record<string, Reservation[]> = Object.fromEntries(DAYS.map((day) => [day, []]));
+    activeReservations.forEach((reservation) => {
+      const day = reservation.dayOfWeek || "Sem dia";
+      if (!grouped[day]) grouped[day] = [];
+      grouped[day].push(reservation);
     });
+    Object.values(grouped).forEach((items) => items.sort((a, b) => (a.schedule?.time ?? "").localeCompare(b.schedule?.time ?? "")));
+    return grouped;
+  }, [activeReservations]);
 
-    return Array.from(grouped.values());
-  }, [reservations]);
+  const visibleDays = weekViewMode === "dia" ? [selectedWeekDay] : DAYS;
+  const visibleReservations = useMemo(() => visibleDays.flatMap((day) => groupedReservations[day] ?? []), [visibleDays, groupedReservations]);
 
   async function loadData() {
     try {
@@ -97,7 +126,7 @@ export default function StudentTrip() {
 
     try {
       setActionLoading(reservation.id);
-      await api.post("/reservations", { scheduleId, routeId, pickupPointId });
+      await api.post("/reservations", { scheduleId, routeId, pickupPointId, dayOfWeek: reservation.dayOfWeek });
       toast({ title: "Presença confirmada", description: `${tripLabel(reservation.schedule?.type)} confirmada com sucesso.` });
       await loadData();
     } catch (error: any) {
@@ -126,7 +155,7 @@ export default function StudentTrip() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 min-w-0">
+    <div className="max-w-4xl mx-auto space-y-6 min-w-0">
       <div className="min-w-0">
         <h1 className="text-2xl font-heading font-bold text-foreground break-words">Olá, {user?.name ?? "Aluno"}! 👋</h1>
         <p className="text-muted-foreground text-sm capitalize">{today}</p>
@@ -134,54 +163,89 @@ export default function StudentTrip() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-xl overflow-hidden min-w-0">
         <div className="bg-primary/5 p-4 border-b border-border">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Calendar className="w-5 h-5 text-primary" /></div>
-            <div className="min-w-0">
-              <h2 className="font-heading font-semibold text-foreground">Minha Viagem</h2>
-              <p className="text-sm text-muted-foreground truncate">{visibleReservations[0]?.schedule?.university?.name ?? "Reservas e confirmações"}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Calendar className="w-5 h-5 text-primary" /></div>
+              <div className="min-w-0">
+                <h2 className="font-heading font-semibold text-foreground">Minha Viagem</h2>
+                <p className="text-sm text-muted-foreground truncate">{visibleReservations[0]?.schedule?.university?.name ?? "Reservas e confirmações"}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={weekViewMode === "todos" ? "default" : "outline"} onClick={() => updateWeekViewMode("todos")}>Todos os horários</Button>
+              <Button size="sm" variant={weekViewMode === "dia" ? "default" : "outline"} onClick={() => updateWeekViewMode("dia")}>Apenas um dia</Button>
             </div>
           </div>
+          {weekViewMode === "dia" && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {DAYS.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => updateSelectedWeekDay(day)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-colors border",
+                    selectedWeekDay === day
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+                  )}
+                >
+                  {day.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="p-3 sm:p-4 space-y-4">
           {loading ? <div className="p-6 text-center text-sm text-muted-foreground">Carregando viagem...</div> : visibleReservations.length === 0 ? (
             <div className="p-6 text-center space-y-3">
               <Clock className="w-9 h-9 mx-auto text-muted-foreground" />
-              <p className="font-heading font-semibold text-foreground">Nenhuma viagem selecionada</p>
-              <p className="text-sm text-muted-foreground">Entre em Horários para escolher sua ida ou volta.</p>
+              <p className="font-heading font-semibold text-foreground">Nenhuma viagem encontrada</p>
+              <p className="text-sm text-muted-foreground">{weekViewMode === "dia" ? `Você não possui horários salvos para ${selectedWeekDay}.` : "Entre em Horários para escolher sua ida e volta."}</p>
               <Button size="sm" onClick={() => window.location.assign("/aluno/horarios")}>Escolher horário</Button>
             </div>
-          ) : visibleReservations.map((reservation) => {
-            const badge = statusBadge(reservation.status);
-            const isConfirmed = reservation.status === "confirmed";
-            const isLoading = actionLoading === reservation.id;
-
-            return (
-              <div key={reservation.id} className="p-3 sm:p-4 bg-muted/30 rounded-xl space-y-3 min-w-0">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0"><Bus className="w-5 h-5 text-primary shrink-0" /><span className="font-heading font-semibold text-foreground truncate">{tripLabel(reservation.schedule?.type)}</span></div>
-                  <span className="text-lg font-heading font-bold text-primary shrink-0">{reservation.schedule?.time ?? "--:--"}</span>
-                </div>
-
-                <Badge variant="outline" className={cn("w-fit", badge.className)}>{badge.label}</Badge>
-
-                <div className="space-y-1 text-sm text-muted-foreground min-w-0">
-                  <div className="flex items-start gap-2 min-w-0"><MapPin className="w-4 h-4 shrink-0 mt-0.5" /><span className="break-words">{reservation.pickupPoint?.name ?? reservation.route?.name ?? "Ponto não informado"}</span></div>
-                  {reservation.route?.driver && <p className="break-words">Motorista: {reservation.route.driver.nome}</p>}
-                  {reservation.route?.vehicle && <p className="break-words">Veículo: {reservation.route.vehicle.name ?? "Ônibus"} - {reservation.route.vehicle.plate}</p>}
-                </div>
-
-                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
-                  <Button size="sm" variant={isConfirmed ? "default" : "outline"} className="w-full" onClick={() => handleConfirm(reservation)} disabled={isLoading}>
-                    <CheckCircle className="w-4 h-4 mr-1" /> {isConfirmed ? "Vou" : "Marcar vou"}
-                  </Button>
-                  <Button size="sm" variant={!isConfirmed ? "destructive" : "outline"} onClick={() => handleCancel(reservation)} disabled={isLoading} className="w-full">
-                    <XCircle className="w-4 h-4 mr-1" /> Não vou
-                  </Button>
-                </div>
+          ) : visibleDays.map((day) => (
+            <div key={day} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading font-semibold text-foreground">{day}</h3>
+                <Badge variant="secondary">{groupedReservations[day]?.length ?? 0}</Badge>
               </div>
-            );
-          })}
+              {(groupedReservations[day]?.length ?? 0) === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Nenhum horário cadastrado.</div>
+              ) : groupedReservations[day].map((reservation) => {
+                const badge = statusBadge(reservation.status);
+                const isConfirmed = reservation.status === "confirmed";
+                const isLoading = actionLoading === reservation.id;
+
+                return (
+                  <div key={reservation.id} className="p-3 sm:p-4 bg-muted/30 rounded-xl space-y-3 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0"><Bus className="w-5 h-5 text-primary shrink-0" /><span className="font-heading font-semibold text-foreground truncate">{tripLabel(reservation.schedule?.type)}</span></div>
+                      <span className="text-lg font-heading font-bold text-primary shrink-0">{reservation.schedule?.time ?? "--:--"}</span>
+                    </div>
+
+                    <Badge variant="outline" className={cn("w-fit", badge.className)}>{badge.label}</Badge>
+
+                    <div className="space-y-1 text-sm text-muted-foreground min-w-0">
+                      <div className="flex items-start gap-2 min-w-0"><MapPin className="w-4 h-4 shrink-0 mt-0.5" /><span className="break-words">{reservation.pickupPoint?.name ?? reservation.route?.name ?? "Ponto não informado"}</span></div>
+                      {reservation.route?.driver && <p className="break-words">Motorista: {reservation.route.driver.nome}</p>}
+                      {reservation.route?.vehicle && <p className="break-words">Veículo: {reservation.route.vehicle.name ?? "Ônibus"} - {reservation.route.vehicle.plate}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
+                      <Button size="sm" variant={isConfirmed ? "default" : "outline"} className="w-full" onClick={() => handleConfirm(reservation)} disabled={isLoading}>
+                        <CheckCircle className="w-4 h-4 mr-1" /> {isConfirmed ? "Vou" : "Marcar vou"}
+                      </Button>
+                      <Button size="sm" variant={!isConfirmed ? "destructive" : "outline"} onClick={() => handleCancel(reservation)} disabled={isLoading} className="w-full">
+                        <XCircle className="w-4 h-4 mr-1" /> Não vou
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </motion.div>
 
