@@ -17,6 +17,13 @@ export type StoredAdmin = {
   };
 };
 
+export type StoredDocument = {
+  name: string;
+  dataUrl: string;
+  type: string;
+  size: number;
+};
+
 export type StoredUser = {
   id: string;
   role: "student" | "driver";
@@ -29,7 +36,9 @@ export type StoredUser = {
   institution?: string;
   photo: string | null;
   docName?: string | null;
+  docFile?: StoredDocument | null;
   cnhName?: string | null;
+  cnhFile?: StoredDocument | null;
   assignedScheduleId?: string | null;
   address: {
     cep: string;
@@ -136,6 +145,7 @@ function bootstrap() {
       institution: student.institution,
       photo: student.photo ?? null,
       docName: "matricula.pdf",
+      docFile: null,
       assignedScheduleId: null,
       address: {
         cep: "59820-000",
@@ -158,6 +168,7 @@ function bootstrap() {
       birthDate: "1987-03-15",
       photo: driver.photo ?? null,
       cnhName: "cnh-digital.pdf",
+      cnhFile: null,
       assignedScheduleId: null,
       address: {
         cep: "59820-000",
@@ -346,6 +357,7 @@ export type DriverByAdminInput = {
   phone: string;
   birthDate: string;
   cnhName: string;
+  cnhFile?: StoredDocument | null;
   photo: string | null;
   city: string;
   state: string;
@@ -365,6 +377,7 @@ export function addDriverByAdmin(input: DriverByAdminInput): StoredUser {
     birthDate: input.birthDate,
     photo: input.photo,
     cnhName: input.cnhName,
+    cnhFile: input.cnhFile ?? null,
     assignedScheduleId: null,
     address: {
       cep: "",
