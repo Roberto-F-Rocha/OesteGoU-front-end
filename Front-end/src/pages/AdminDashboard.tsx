@@ -4,6 +4,7 @@ import {
   Bus,
   Calendar,
   Clock,
+  FileText,
   GraduationCap,
   LayoutDashboard,
   MapPin,
@@ -20,6 +21,7 @@ import AdminFleet from "./admin/AdminFleet";
 import AdminUniversities from "./admin/AdminUniversities";
 import AdminShifts from "./admin/AdminShifts";
 import AdminPickupPoints from "./admin/AdminPickupPoints";
+import AdminDocuments from "./admin/AdminDocuments";
 import AdminPush from "./admin/AdminPush";
 
 export default function AdminDashboard() {
@@ -36,6 +38,7 @@ export default function AdminDashboard() {
     { label: "Turnos", path: "/admin/turnos", icon: Clock },
     { label: "Universidades", path: "/admin/universidade", icon: School },
     { label: "Pontos", path: "/admin/pontos", icon: MapPin },
+    { label: "Documentos", path: "/admin/documentos", icon: FileText },
     { label: "Notificação", path: "/admin/push", icon: Bell },
   ];
 
@@ -50,6 +53,7 @@ export default function AdminDashboard() {
         <Route path="turnos" element={<AdminShifts adminCity={adminCity} adminState={adminState} />} />
         <Route path="universidade" element={<AdminUniversities adminCity={adminCity} adminState={adminState} />} />
         <Route path="pontos" element={<AdminPickupPoints adminCity={adminCity} adminState={adminState} />} />
+        <Route path="documentos" element={<AdminDocuments />} />
         <Route path="push" element={<AdminPush />} />
 
         <Route path="analytics" element={<Navigate to="/admin" replace />} />
@@ -57,6 +61,7 @@ export default function AdminDashboard() {
         <Route path="universidades" element={<Navigate to="/admin/universidade" replace />} />
         <Route path="escalas" element={<Navigate to="/admin/horarios" replace />} />
         <Route path="pontos-embarque" element={<Navigate to="/admin/pontos" replace />} />
+        <Route path="docs" element={<Navigate to="/admin/documentos" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </DashboardLayout>
