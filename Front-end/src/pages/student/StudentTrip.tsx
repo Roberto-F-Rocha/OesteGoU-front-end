@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, MapPin, Bus, Calendar, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ function statusBadge(status: Reservation["status"]) {
 export default function StudentTrip() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,8 +210,8 @@ export default function StudentTrip() {
             <div className="p-6 text-center space-y-3">
               <Clock className="w-9 h-9 mx-auto text-muted-foreground" />
               <p className="font-heading font-semibold text-foreground">Nenhuma viagem encontrada</p>
-              <p className="text-sm text-muted-foreground">{weekViewMode === "hoje" ? `Você não possui horários salvos para hoje (${todayDay}).` : selectedWeekDay === ALL_DAYS_FILTER ? "Entre em Horários para escolher sua ida e volta." : `Você não possui horários salvos para ${selectedWeekDay}.`}</p>
-              <Button size="sm" onClick={() => window.location.assign("/aluno/horarios")}>Escolher horário</Button>
+              <p className="text-sm text-muted-foreground">{weekViewMode === "hoje" ? `Você não possui horários salvos para hoje (${todayDay}).` : selectedWeekDay === ALL_DAYS_FILTER ? "Você ainda não possui horários salvos na sua semana." : `Você não possui horários salvos para ${selectedWeekDay}.`}</p>
+              <Button size="sm" onClick={() => navigate("/aluno/horarios")}>Cadastrar horário</Button>
             </div>
           ) : visibleDays.map((day) => (
             <div key={day} className="space-y-3">
