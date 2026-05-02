@@ -2,6 +2,16 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
 
+function maskCpf(cpf) {
+  if (!cpf) return null;
+  return cpf.slice(0, 3) + "***" + cpf.slice(-2);
+}
+
+function maskPhone(phone) {
+  if (!phone) return null;
+  return phone.slice(0, 2) + "*****" + phone.slice(-2);
+}
+
 function ensureAdmin(req, res) {
   if (req.user?.role !== "admin") {
     res.status(403).json({ error: "Acesso permitido apenas para administradores" });
@@ -87,7 +97,13 @@ export async function listAdminUsers(req, res) {
     orderBy: { createdAt: "desc" },
   });
 
-  return res.json(users);
+  return res.json(
+    users.map((u) => ({
+      ...u,
+      cpf: maskCpf(u.cpf),
+      phone: maskPhone(u.phone),
+    }))
+  );
 }
 
 export async function updateUserStatus(req, res) {
