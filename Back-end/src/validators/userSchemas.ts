@@ -43,7 +43,7 @@ export const registerSchema = z.object({
   name: z.string().trim().min(3, "Nome muito curto").max(120, "Nome muito longo"),
   email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
-  role: z.enum(["admin", "student", "driver"]),
+  role: z.enum(["admin", "student"]),
   cpf: cpfSchema.optional(),
   phone: phoneSchema.optional(),
   birthDate: z.string().optional(),
