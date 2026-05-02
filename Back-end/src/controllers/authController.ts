@@ -21,7 +21,6 @@ export async function login(req, res) {
     return res.status(401).json({ error: "Credenciais inválidas" });
   }
 
-  // 🔒 VALIDAÇÃO DE STATUS
   if (user.status !== "active") {
     return res.status(403).json({
       error: "Usuário não autorizado",
@@ -37,6 +36,7 @@ export async function login(req, res) {
       userId: user.id,
       refreshToken,
       userAgent: req.headers["user-agent"],
+      ipAddress: req.ip || req.socket?.remoteAddress,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
@@ -49,6 +49,8 @@ export async function login(req, res) {
       name: user.nome,
       email: user.email,
       role: user.role,
+      status: user.status,
+      cityId: user.cityId,
     },
   });
 }
@@ -64,6 +66,8 @@ export async function me(req, res) {
       email: true,
       role: true,
       status: true,
+      cityId: true,
+      city: true,
     },
   });
 
@@ -77,6 +81,8 @@ export async function me(req, res) {
     email: user.email,
     role: user.role,
     status: user.status,
+    cityId: user.cityId,
+    city: user.city,
   });
 }
 
@@ -95,10 +101,19 @@ export async function refresh(req, res) {
 
     const session = await prisma.session.findFirst({
       where: { refreshToken },
+      include: { user: true },
     });
 
-    if (!session) {
-      return res.status(401).json({ error: "Sessão inválida" });
+    if (!session || session.expiresAt < new Date()) {
+      return res.status(401).json({ error: "Sessão inválida ou expirada" });
+    }
+
+    if (!session.user || session.user.status !== "active") {
+      await prisma.session.deleteMany({
+        where: { userId: payload.id },
+      });
+
+      return res.status(403).json({ error: "Usuário não autorizado" });
     }
 
     const accessSecret = process.env.JWT_ACCESS_SECRET;
@@ -114,4 +129,18 @@ export async function refresh(req, res) {
   } catch {
     return res.status(401).json({ error: "Refresh inválido" });
   }
+}
+
+export async function logout(req, res) {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ error: "Refresh token é obrigatório" });
+  }
+
+  await prisma.session.deleteMany({
+    where: { refreshToken },
+  });
+
+  return res.status(204).send();
 }

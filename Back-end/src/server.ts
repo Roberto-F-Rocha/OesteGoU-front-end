@@ -12,13 +12,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔒 SEGURANÇA
 app.use(securityMiddleware);
 
-// 🧼 SANITIZAÇÃO
 app.use(sanitizeInput);
 
-// 🧾 LOG
 app.use(auditLogger);
 
 app.use(routes);
