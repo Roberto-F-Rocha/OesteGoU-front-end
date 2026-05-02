@@ -2,6 +2,16 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
+function clearSessionAndRedirect() {
+  localStorage.removeItem("oestegou:accessToken");
+  localStorage.removeItem("oestegou:refreshToken");
+  localStorage.removeItem("oestegou:user");
+
+  if (window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
 });
@@ -27,8 +37,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem("oestegou:refreshToken");
 
       if (!refreshToken) {
-        localStorage.removeItem("oestegou:accessToken");
-        localStorage.removeItem("oestegou:user");
+        clearSessionAndRedirect();
         return Promise.reject(error);
       }
 
@@ -42,11 +51,13 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem("oestegou:accessToken");
-        localStorage.removeItem("oestegou:refreshToken");
-        localStorage.removeItem("oestegou:user");
+        clearSessionAndRedirect();
         return Promise.reject(refreshError);
       }
+    }
+
+    if (error.response?.status === 401) {
+      clearSessionAndRedirect();
     }
 
     return Promise.reject(error);
