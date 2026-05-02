@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { socket } from "@/services/socket";
 
@@ -29,36 +30,11 @@ export interface MaintenanceTicket {
   vehicle?: { id: number; plate: string; model?: string | null; name?: string | null } | null;
 }
 
-interface CacheShape {
-  routes: DriverRoute[];
-  tickets: MaintenanceTicket[];
-  timestamp: number;
-}
-
-const CACHE_TTL = 45_000;
-let cache: CacheShape | null = null;
-let inflight: Promise<CacheShape> | null = null;
+const QUERY_KEY = ["driver-maintenance"] as const;
 
 function normalizeTicketResponse(payload: any): MaintenanceTicket[] {
-  return payload?.data ?? payload ?? [];
-}
-
-async function fetchDriverMaintenance(): Promise<CacheShape> {
-  if (inflight) return inflight;
-  inflight = Promise.all([api.get("/driver/routes"), api.get("/maintenance-tickets/my")])
-    .then(([routesResponse, ticketsResponse]) => {
-      const data: CacheShape = {
-        routes: routesResponse.data ?? [],
-        tickets: normalizeTicketResponse(ticketsResponse.data),
-        timestamp: Date.now(),
-      };
-      cache = data;
-      return data;
-    })
-    .finally(() => {
-      inflight = null;
-    });
-  return inflight;
+  const list = payload?.data ?? payload ?? [];
+  return Array.isArray(list) ? list.map((ticket) => ({ ...ticket, vehicleId: Number(ticket.vehicleId ?? ticket.busId) })) : [];
 }
 
 function upsertTicket(list: MaintenanceTicket[], ticket: MaintenanceTicket) {
@@ -72,74 +48,52 @@ function upsertTicket(list: MaintenanceTicket[], ticket: MaintenanceTicket) {
   return [normalized, ...list];
 }
 
+async function fetchDriverMaintenance() {
+  const [routesResponse, ticketsResponse] = await Promise.all([
+    api.get("/driver/routes"),
+    api.get("/maintenance-tickets/my"),
+  ]);
+
+  return {
+    routes: routesResponse.data ?? [],
+    tickets: normalizeTicketResponse(ticketsResponse.data),
+  } as { routes: DriverRoute[]; tickets: MaintenanceTicket[] };
+}
+
 export function useDriverMaintenance() {
-  const [routes, setRoutes] = useState<DriverRoute[]>(cache?.routes ?? []);
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(cache?.tickets ?? []);
-  const [loading, setLoading] = useState(!cache);
-  const [refreshing, setRefreshing] = useState(false);
-  const mounted = useRef(true);
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchDriverMaintenance,
+    staleTime: 45_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  const syncCache = useCallback((next: Partial<CacheShape>) => {
-    cache = {
-      routes: next.routes ?? cache?.routes ?? [],
-      tickets: next.tickets ?? cache?.tickets ?? [],
-      timestamp: Date.now(),
-    };
-  }, []);
-
-  const load = useCallback(async (options?: { force?: boolean; silent?: boolean }) => {
-    const fresh = cache && Date.now() - cache.timestamp < CACHE_TTL;
-    if (!options?.force && fresh) {
-      setRoutes(cache.routes);
-      setTickets(cache.tickets);
-      setLoading(false);
-      return cache;
-    }
-
-    if (options?.silent) setRefreshing(true);
-    else setLoading(true);
-
-    const data = await fetchDriverMaintenance();
-    if (mounted.current) {
-      setRoutes(data.routes);
-      setTickets(data.tickets);
-      setLoading(false);
-      setRefreshing(false);
-    }
-    return data;
-  }, []);
-
-  const createTicket = useCallback(async (input: { vehicleId: number; title: string; description: string; severity: TicketSeverity }) => {
-    const response = await api.post("/maintenance-tickets", input);
-    const ticket = response.data as MaintenanceTicket;
-    setTickets((current) => {
-      const next = upsertTicket(current, ticket);
-      syncCache({ tickets: next });
-      return next;
-    });
-    return ticket;
-  }, [syncCache]);
-
-  useEffect(() => {
-    mounted.current = true;
-    load().catch(() => {
-      if (mounted.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    });
-    return () => { mounted.current = false; };
-  }, [load]);
+  const mutation = useMutation({
+    mutationFn: async (input: { vehicleId: number; title: string; description: string; severity: TicketSeverity }) => {
+      const response = await api.post("/maintenance-tickets", input);
+      return { ...response.data, vehicleId: Number(response.data.vehicleId ?? response.data.busId) } as MaintenanceTicket;
+    },
+    onSuccess: (ticket) => {
+      queryClient.setQueryData(QUERY_KEY, (current: { routes: DriverRoute[]; tickets: MaintenanceTicket[] } | undefined) => ({
+        routes: current?.routes ?? [],
+        tickets: upsertTicket(current?.tickets ?? [], ticket),
+      }));
+    },
+  });
 
   useEffect(() => {
     const handleTicket = (ticket: MaintenanceTicket) => {
-      setTickets((current) => {
-        const next = upsertTicket(current, ticket);
-        syncCache({ tickets: next });
-        return next;
-      });
+      queryClient.setQueryData(QUERY_KEY, (current: { routes: DriverRoute[]; tickets: MaintenanceTicket[] } | undefined) => ({
+        routes: current?.routes ?? [],
+        tickets: upsertTicket(current?.tickets ?? [], ticket),
+      }));
     };
-    const handleRoutes = () => load({ force: true, silent: true }).catch(() => undefined);
+
+    const handleRoutes = () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    };
 
     socket.on("maintenance:ticket-created", handleTicket);
     socket.on("maintenance:ticket-updated", handleTicket);
@@ -156,10 +110,12 @@ export function useDriverMaintenance() {
       socket.off("reservation:created", handleRoutes);
       socket.off("reservation:canceled", handleRoutes);
     };
-  }, [load, syncCache]);
+  }, [queryClient]);
 
+  const routes = query.data?.routes ?? [];
+  const tickets = query.data?.tickets ?? [];
   const vehicles = useMemo(() => {
-    const map = new Map<number, DriverRoute["vehicle"] & { routes: DriverRoute[]; passengers: number }>();
+    const map = new Map<number, NonNullable<DriverRoute["vehicle"]> & { routes: DriverRoute[]; passengers: number }>();
     routes.forEach((route) => {
       if (!route.vehicle) return;
       const current = map.get(route.vehicle.id) ?? { ...route.vehicle, routes: [], passengers: 0 };
@@ -167,10 +123,20 @@ export function useDriverMaintenance() {
       current.passengers += route.reservations?.length ?? 0;
       map.set(route.vehicle.id, current);
     });
-    return Array.from(map.values()).filter(Boolean) as Array<NonNullable<DriverRoute["vehicle"]> & { routes: DriverRoute[]; passengers: number }>;
+    return Array.from(map.values());
   }, [routes]);
 
-  return { routes, tickets, vehicles, loading, refreshing, reload: () => load({ force: true }), createTicket };
+  return {
+    routes,
+    tickets,
+    vehicles,
+    loading: query.isLoading,
+    refreshing: query.isFetching && !query.isLoading,
+    error: query.error,
+    reload: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    createTicket: mutation.mutateAsync,
+    creatingTicket: mutation.isPending,
+  };
 }
 
 export type { TicketSeverity, TicketStatus };
