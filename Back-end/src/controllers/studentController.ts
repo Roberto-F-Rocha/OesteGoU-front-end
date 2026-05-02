@@ -34,13 +34,18 @@ export async function getAvailableRoutes(req, res) {
     where: {
       active: true,
       cityId: { in: allowedCityIds },
+      schedule: { active: true },
     },
     include: {
       city: true,
       schedule: { include: { university: true } },
       vehicle: true,
       driver: { select: { id: true, nome: true, email: true } },
-      points: { include: { pickupPoint: true }, orderBy: { order: "asc" } },
+      points: {
+        where: { pickupPoint: { active: true } },
+        include: { pickupPoint: { include: { university: true, city: true } } },
+        orderBy: { order: "asc" },
+      },
       reservations: { where: { status: "confirmed" }, select: { id: true } },
     },
     orderBy: [
@@ -54,32 +59,22 @@ export async function getAvailableRoutes(req, res) {
 
 export async function getStudentsByRoute(req, res) {
   const { routeId } = req.params;
-
   const allowedCities = req.allowedCities;
 
   const reservations = await prisma.reservation.findMany({
     where: {
       routeId: Number(routeId),
       status: "confirmed",
-      user: {
-        cityId: {
-          in: allowedCities,
-        },
-      },
+      user: { cityId: { in: allowedCities } },
     },
-    include: {
-      user: true,
-      pickupPoint: true,
-    },
+    include: { user: true, pickupPoint: true },
   });
 
   const grouped = {};
 
   reservations.forEach((r) => {
     const city = r.user.cityId;
-
     if (!grouped[city]) grouped[city] = [];
-
     grouped[city].push({
       id: r.user.id,
       nome: r.user.nome,
@@ -95,25 +90,14 @@ export async function getMyTripPassengers(req, res) {
   const user = req.user;
 
   const reservation = await prisma.reservation.findFirst({
-    where: {
-      userId: user.id,
-      status: "confirmed",
-    },
+    where: { userId: user.id, status: "confirmed" },
   });
 
-  if (!reservation) {
-    return res.json([]);
-  }
+  if (!reservation) return res.json([]);
 
   const passengers = await prisma.reservation.findMany({
-    where: {
-      routeId: reservation.routeId,
-      status: "confirmed",
-    },
-    include: {
-      user: true,
-      pickupPoint: true,
-    },
+    where: { routeId: reservation.routeId, status: "confirmed" },
+    include: { user: true, pickupPoint: true },
   });
 
   return res.json(passengers.map(p => ({
