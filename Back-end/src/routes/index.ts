@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
+import { getMyDocuments } from "../controllers/documentController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
@@ -52,6 +53,7 @@ router.post("/auth/refresh", refresh);
 router.get("/auth/me", auth, me);
 
 router.post("/upload", auth, upload.single("file"), uploadDocument);
+router.get("/documents/my", auth, getMyDocuments);
 
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
