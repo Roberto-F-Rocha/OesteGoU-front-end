@@ -261,27 +261,34 @@ model University {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  city      City?     @relation(fields: [cityId], references: [id])
-  schedules Schedule[]
+  city         City?         @relation(fields: [cityId], references: [id])
+  schedules    Schedule[]
+  pickupPoints PickupPoint[]
 
   @@index([cityId])
 }
 
 model PickupPoint {
-  id        Int      @id @default(autoincrement())
-  name      String
-  address   String?
-  latitude  Float?
-  longitude Float?
-  cityId    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String
+  address      String?
+  latitude     Float?
+  longitude    Float?
+  type         TripType @default(ida)
+  cityId       Int
+  universityId Int?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   city         City          @relation(fields: [cityId], references: [id])
+  university   University?   @relation(fields: [universityId], references: [id])
   routePoints  RoutePoint[]
   reservations Reservation[]
 
   @@index([cityId])
+  @@index([type])
+  @@index([universityId])
 }
 
 model Vehicle {
