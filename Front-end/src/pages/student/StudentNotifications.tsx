@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, BellOff, CheckCheck, Trash2, AlertCircle, Calendar, CheckCircle2, Info } from "lucide-react";
+import { Bell, BellOff, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
@@ -27,23 +27,13 @@ export default function StudentNotifications() {
     loadNotifications();
   }, []);
 
-  async function toggleRead(id: number) {
+  async function markAsRead(id: number) {
     await api.patch(`/notifications/${id}/read`);
     loadNotifications();
   }
 
   async function markAllRead() {
     await api.patch("/notifications/read-all");
-    loadNotifications();
-  }
-
-  async function remove(id: number) {
-    await api.delete(`/notifications/${id}`);
-    loadNotifications();
-  }
-
-  async function clearAll() {
-    await api.delete("/notifications/clear");
     loadNotifications();
   }
 
@@ -56,14 +46,11 @@ export default function StudentNotifications() {
             {unread > 0 && <Badge variant="default" className="ml-1">{unread} nova{unread > 1 ? "s" : ""}</Badge>}
           </h1>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={markAllRead} disabled={unread === 0}>
-            <CheckCheck className="w-4 h-4 mr-1.5" /> Marcar todas
+        {unread > 0 && (
+          <Button size="sm" variant="outline" onClick={markAllRead}>
+            <CheckCheck className="w-4 h-4 mr-1.5" /> Marcar todas como lidas
           </Button>
-          <Button size="sm" variant="ghost" onClick={clearAll} disabled={items.length === 0}>
-            <Trash2 className="w-4 h-4 mr-1.5" /> Limpar
-          </Button>
-        </div>
+        )}
       </div>
 
       {loading ? (
@@ -79,23 +66,25 @@ export default function StudentNotifications() {
             {items.map((n: any, i) => {
               const isUnread = !n.readAt;
               return (
-                <motion.div
+                <motion.button
                   key={n.id}
+                  type="button"
                   layout
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ delay: i * 0.03 }}
-                  className={`group relative bg-card border rounded-xl p-4 flex gap-3 ${
-                    isUnread ? "border-primary/40 bg-primary/[0.03]" : "border-border"
+                  onClick={() => isUnread && markAsRead(n.id)}
+                  className={`w-full text-left group relative bg-card border rounded-xl p-4 flex gap-3 ${
+                    isUnread ? "border-primary/40 bg-primary/[0.03] cursor-pointer" : "border-border cursor-default"
                   }`}
                 >
                   <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
                     <Bell className="w-5 h-5" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-heading font-semibold">{n.title}</p>
+                      <p className="font-heading font-semibold text-foreground">{n.title}</p>
                       {isUnread && <span className="w-2 h-2 bg-primary rounded-full" />}
                     </div>
                     <p className="text-sm text-muted-foreground">{n.message}</p>
@@ -103,15 +92,8 @@ export default function StudentNotifications() {
                       {new Date(n.createdAt).toLocaleString("pt-BR")}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => toggleRead(n.id)}>
-                      <CheckCheck className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => remove(n.id)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </motion.div>
+                  {isUnread && <CheckCheck className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />}
+                </motion.button>
               );
             })}
           </AnimatePresence>
