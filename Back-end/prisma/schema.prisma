@@ -96,7 +96,6 @@ model City {
   partnerLinks   CityAgreement[] @relation("PartnerCity")
   auditLogs      AuditLog[]
   pushSendLogs   PushSendLog[]
-  studentSchedules StudentSchedule[]
 
   @@unique([name, state])
   @@index([state])
@@ -158,7 +157,6 @@ model User {
   approvedAgreements     CityAgreement[]    @relation("AgreementApprovedBy")
   drivenRoutes           TransportRoute[]   @relation("RouteDriver")
   reviewedDocuments      UserDocument[]     @relation("DocumentReviewedBy")
-  studentSchedules       StudentSchedule[]
 
   @@index([role])
   @@index([cityId])
@@ -318,30 +316,6 @@ model Schedule {
 
   @@index([type])
   @@index([universityId])
-}
-
-model StudentSchedule {
-  id                Int      @id @default(autoincrement())
-  userId            Int
-  cityId            Int
-  title             String
-  dayOfWeek         String
-  shift             String
-  departureTime     String
-  departureLocation String
-  returnTime        String
-  returnLocation    String
-  driverId          Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user   User @relation(fields: [userId], references: [id])
-  city   City @relation(fields: [cityId], references: [id])
-  driver User? @relation("StudentScheduleDriver", fields: [driverId], references: [id])
-
-  @@index([userId])
-  @@index([cityId])
-  @@index([dayOfWeek])
 }
 
 model TransportRoute {
