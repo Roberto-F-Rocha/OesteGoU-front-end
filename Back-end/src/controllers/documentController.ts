@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
@@ -22,6 +23,36 @@ function ensureAdmin(req, res) {
     return false;
   }
   return true;
+}
+
+function canAccessDocument(req, document) {
+  const cityIds = req.allowedCities ?? [req.user.cityId];
+  const isOwner = document.userId === req.user.id;
+  const isAdminAllowed = req.user.role === "admin" && document.user?.cityId && cityIds.includes(document.user.cityId);
+  return isOwner || isAdminAllowed;
+}
+
+function sendDocumentFile(res, document, inline = false) {
+  if (document.fileData) {
+    const buffer = Buffer.isBuffer(document.fileData) ? document.fileData : Buffer.from(document.fileData);
+    res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
+    res.setHeader("Content-Length", buffer.length);
+    res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(document.fileName)}"`);
+    return res.send(buffer);
+  }
+
+  if (document.filePath) {
+    const absolutePath = path.resolve(process.cwd(), document.filePath);
+    if (!fs.existsSync(absolutePath)) return res.status(404).json({ error: "Arquivo físico não encontrado" });
+    if (inline) {
+      res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(document.fileName)}"`);
+      return fs.createReadStream(absolutePath).pipe(res);
+    }
+    return res.download(absolutePath, document.fileName);
+  }
+
+  return res.status(404).json({ error: "Arquivo não encontrado no banco" });
 }
 
 export async function getMyDocuments(req, res) {
@@ -61,7 +92,7 @@ export async function listAdminDocuments(req, res) {
       ...(type ? { type: String(type) } : {}),
     },
     include: {
-      user: { select: { id: true, nome: true, email: true, role: true, city: true } },
+      user: { select: { id: true, nome: true, email: true, role: true, cityId: true, city: true } },
       reviewedBy: { select: { id: true, nome: true, email: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -80,14 +111,8 @@ export async function reviewDocument(req, res) {
   if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
   if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "Status inválido" });
 
-  const document = await prisma.userDocument.findUnique({
-    where: { id },
-    include: { user: true },
-  });
-
-  if (!document || !document.user.cityId || !cityIds.includes(document.user.cityId)) {
-    return res.status(404).json({ error: "Documento não encontrado" });
-  }
+  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
+  if (!document || !document.user.cityId || !cityIds.includes(document.user.cityId)) return res.status(404).json({ error: "Documento não encontrado" });
 
   const updated = await prisma.userDocument.update({
     where: { id },
@@ -98,21 +123,19 @@ export async function reviewDocument(req, res) {
       reviewedAt: new Date(),
     },
     include: {
-      user: { select: { id: true, nome: true, email: true, role: true, city: true } },
+      user: { select: { id: true, nome: true, email: true, role: true, cityId: true, city: true } },
       reviewedBy: { select: { id: true, nome: true, email: true } },
     },
   });
 
   if (status === "approved" && document.type === "profile_photo") {
-    await prisma.user.update({ where: { id: document.userId }, data: { photo: document.filePath } });
+    await prisma.user.update({ where: { id: document.userId }, data: { photo: document.fileData ? `db:${document.id}` : document.filePath } });
   }
 
   await notifyUser(
     document.userId,
     status === "approved" ? "Documento aprovado" : "Documento rejeitado",
-    status === "approved"
-      ? `Seu ${documentLabel(document.type)} foi aprovado pela administração.`
-      : `Seu ${documentLabel(document.type)} foi rejeitado. ${reason ? `Motivo: ${reason}` : "Envie um novo arquivo para análise."}`,
+    status === "approved" ? `Seu ${documentLabel(document.type)} foi aprovado pela administração.` : `Seu ${documentLabel(document.type)} foi rejeitado. ${reason ? `Motivo: ${reason}` : "Envie um novo arquivo para análise."}`,
     status === "approved" ? "success" : "warning",
     { documentId: document.id, documentType: document.type, status },
   );
@@ -135,19 +158,20 @@ export async function downloadDocument(req, res) {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
 
-  const document = await prisma.userDocument.findUnique({
-    where: { id },
-    include: { user: true },
-  });
-
+  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
   if (!document) return res.status(404).json({ error: "Documento não encontrado" });
+  if (!canAccessDocument(req, document)) return res.status(403).json({ error: "Acesso negado" });
 
-  const cityIds = req.allowedCities ?? [req.user.cityId];
-  const isOwner = document.userId === req.user.id;
-  const isAdminAllowed = req.user.role === "admin" && document.user.cityId && cityIds.includes(document.user.cityId);
+  return sendDocumentFile(res, document, false);
+}
 
-  if (!isOwner && !isAdminAllowed) return res.status(403).json({ error: "Acesso negado" });
+export async function viewDocument(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
 
-  const absolutePath = path.resolve(process.cwd(), document.filePath);
-  return res.download(absolutePath, document.fileName);
+  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
+  if (!document) return res.status(404).json({ error: "Documento não encontrado" });
+  if (!canAccessDocument(req, document)) return res.status(403).json({ error: "Acesso negado" });
+
+  return sendDocumentFile(res, document, true);
 }
