@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   Bus,
   Calendar,
   GraduationCap,
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface Props {
   adminCity: string;
@@ -87,6 +89,49 @@ function SectionGroup({ title, description, children }: { title: string; descrip
   );
 }
 
+function AdminRealtimeAlerts() {
+  const { notifications, unreadCount } = useNotifications();
+  const recentAlerts = notifications.slice(0, 5);
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-heading font-semibold text-foreground flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" /> Central de alertas em tempo real
+          </h2>
+          <p className="text-xs text-muted-foreground">Notificações administrativas, lotação e avisos chegam aqui sem atualizar a página.</p>
+        </div>
+        {unreadCount > 0 && <Badge>{unreadCount} nova{unreadCount > 1 ? "s" : ""}</Badge>}
+      </div>
+
+      {recentAlerts.length === 0 ? (
+        <div className="border border-dashed border-border rounded-xl p-5 text-sm text-muted-foreground text-center">
+          Nenhum alerta recente.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {recentAlerts.map((alert, index) => {
+            const isWarning = alert.type === "warning" || alert.type === "error" || alert.metadata?.overcapacity;
+            return (
+              <div key={alert.id ?? index} className={cn("rounded-xl border p-3 bg-background/60", isWarning ? "border-amber-500/30" : "border-border")}> 
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-heading font-semibold text-foreground">{alert.title}</p>
+                    <p className="text-sm text-muted-foreground break-words">{alert.message}</p>
+                    {alert.createdAt && <p className="text-xs text-muted-foreground mt-1">{new Date(alert.createdAt).toLocaleString("pt-BR")}</p>}
+                  </div>
+                  {isWarning && <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function AdminOverview({ adminCity, adminState }: Props) {
   const { toast } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -134,6 +179,8 @@ export default function AdminOverview({ adminCity, adminState }: Props) {
           </Badge>
         )}
       </div>
+
+      <AdminRealtimeAlerts />
 
       <SectionGroup title="Pessoas" description="Quem usa o sistema na sua cidade.">
         <MetricCard title="Alunos" value={data?.students ?? 0} subtitle={(data?.pendingUsers ?? 0) > 0 ? `${data?.pendingUsers} pendente(s)` : "Todos ativos"} icon={GraduationCap} to="/admin/alunos" tone="primary" />
