@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, AlertCircle, Phone, Mail, GraduationCap } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, AlertCircle, Phone, Mail, GraduationCap, BellRing } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +50,9 @@ export default function DriverStudents() {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notificationTarget, setNotificationTarget] = useState<"all" | number | null>(null);
+  const [message, setMessage] = useState("Olá! Sua confirmação de presença ainda está pendente. Pode confirmar sua viagem?");
+  const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadStudents() {
@@ -93,11 +106,52 @@ export default function DriverStudents() {
   }, [rows, trip, filter, query]);
 
   const tripRows = rows.filter((row) => row.scheduleType === trip);
+  const pendingRows = filtered.filter((row) => row.status !== "confirmed");
   const counts = {
     all: tripRows.length,
     confirmed: tripRows.filter((row) => row.status === "confirmed").length,
     canceled: tripRows.filter((row) => row.status === "canceled").length,
     absent: tripRows.filter((row) => row.status === "absent").length,
+  };
+
+  const notificationLabel =
+    notificationTarget === "all"
+      ? `${pendingRows.length} alunos pendentes`
+      : rows.find((row) => row.user.id === notificationTarget)?.user.nome ?? "Aluno";
+
+  const openNotificationDialog = (target: "all" | number) => {
+    setNotificationTarget(target);
+    setMessage("Olá! Sua confirmação de presença ainda está pendente. Pode confirmar sua viagem?");
+  };
+
+  const handleSendNotification = () => {
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) {
+      toast({
+        title: "Mensagem obrigatória",
+        description: "Escreva uma mensagem antes de enviar a notificação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (notificationTarget === "all") {
+      setNotifiedIds((current) => Array.from(new Set([...current, ...pendingRows.map((row) => `${trip}-${row.user.id}`)])));
+    } else if (notificationTarget) {
+      setNotifiedIds((current) => Array.from(new Set([...current, `${trip}-${notificationTarget}`])));
+    }
+
+    toast({
+      title: "Notificação registrada",
+      description:
+        notificationTarget === "all"
+          ? `Aviso marcado para ${pendingRows.length} alunos pendentes.`
+          : `Aviso marcado para ${notificationLabel}.`,
+    });
+
+    setNotificationTarget(null);
+    setMessage("");
   };
 
   return (
@@ -177,6 +231,14 @@ export default function DriverStudents() {
         ))}
       </div>
 
+      {pendingRows.length > 0 && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={() => openNotificationDialog("all")}>
+            <BellRing className="w-4 h-4 mr-2" /> Notificar pendentes
+          </Button>
+        </div>
+      )}
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Carregando alunos...</div>
@@ -188,6 +250,12 @@ export default function DriverStudents() {
           <ul className="divide-y divide-border">
             {filtered.map((row, i) => {
               const { icon: StatusIcon, color, label } = getStatusInfo(row.status);
+              const notificationStatus = row.status !== "confirmed"
+                ? notifiedIds.includes(`${trip}-${row.user.id}`)
+                  ? "notified"
+                  : "pending_notification"
+                : null;
+
               return (
                 <motion.li
                   key={`${row.routeId}-${row.reservationId}`}
@@ -205,6 +273,11 @@ export default function DriverStudents() {
                       <Badge variant="secondary" className="text-[10px] py-0">
                         {row.user.institution ?? "Instituição não informada"}
                       </Badge>
+                      {notificationStatus && (
+                        <Badge variant={notificationStatus === "notified" ? "default" : "secondary"} className="text-[10px] py-0">
+                          {notificationStatus === "notified" ? "Notificado" : "Pendente de notificação"}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {row.routeName} • {row.scheduleTime} • {row.pickupPoint ?? "Ponto não informado"}
@@ -222,9 +295,23 @@ export default function DriverStudents() {
                       )}
                     </div>
                   </div>
-                  <div className={`flex items-center gap-1.5 ${color}`}>
-                    <StatusIcon className="w-4 h-4" />
-                    <span className="text-xs font-medium hidden sm:inline">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {row.status !== "confirmed" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => openNotificationDialog(row.user.id)}
+                      >
+                        <BellRing className="w-4 h-4" />
+                        <span className="hidden sm:inline">Notificar</span>
+                      </Button>
+                    )}
+                    <div className={`flex items-center gap-1.5 ${color}`}>
+                      <StatusIcon className="w-4 h-4" />
+                      <span className="text-xs font-medium hidden sm:inline">{label}</span>
+                    </div>
                   </div>
                 </motion.li>
               );
@@ -232,6 +319,37 @@ export default function DriverStudents() {
           </ul>
         )}
       </div>
+
+      <Dialog open={notificationTarget !== null} onOpenChange={(open) => !open && setNotificationTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar notificação</DialogTitle>
+            <DialogDescription>
+              {notificationTarget === "all"
+                ? "Envie um lembrete para todos os alunos pendentes na lista atual."
+                : `Envie um lembrete para ${notificationLabel} confirmar a viagem.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Destino: {notificationLabel}</p>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Escreva a mensagem da notificação"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setNotificationTarget(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSendNotification}>
+              Enviar aviso
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
