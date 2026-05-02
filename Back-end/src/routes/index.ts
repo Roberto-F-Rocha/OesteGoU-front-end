@@ -5,6 +5,8 @@ import { registerUser } from "../controllers/registerController";
 import { getMyDocuments } from "../controllers/documentController";
 import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../controllers/notificationController";
 import { subscribePush, unsubscribePush } from "../controllers/pushController";
+import { sendPush, getPushHistory } from "../controllers/adminPushController";
+import { getAnalyticsDashboard } from "../controllers/adminAnalyticsController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
@@ -63,6 +65,10 @@ router.patch("/notifications/read-all", auth, markAllNotificationsAsRead);
 
 router.post("/push/subscribe", auth, subscribePush);
 router.delete("/push/unsubscribe", auth, unsubscribePush);
+
+router.post("/admin/push/send", auth, cityAccess, sendPush);
+router.get("/admin/push/history", auth, cityAccess, getPushHistory);
+router.get("/admin/analytics/dashboard", auth, cityAccess, getAnalyticsDashboard);
 
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
