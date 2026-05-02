@@ -1,0 +1,21 @@
+{
+  "name": "OesteGoU - Transporte Universitário",
+  "short_name": "OesteGoU",
+  "description": "Sistema inteligente de transporte universitário para alunos, motoristas e administradores.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "categories": ["education", "navigation", "productivity"],
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}
