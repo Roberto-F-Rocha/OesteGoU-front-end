@@ -11,9 +11,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import DriverDashboard from "./pages/DriverDashboard";
 import NotFound from "./pages/NotFound";
-import AdminPush from "@/pages/admin/AdminPush";
-import AdminAnalytics from "@/pages/admin/AdminAnalytics";
-
 
 const queryClient = new QueryClient();
 
@@ -35,8 +32,6 @@ function AppRoutes() {
       <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
       <Route path="/aluno/*" element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
       <Route path="/motorista/*" element={<ProtectedRoute role="driver"><DriverDashboard /></ProtectedRoute>} />
-      <Route path="/admin/push" element={<AdminPush />} />
-      <Route path="/admin/analytics" element={<AdminAnalytics />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
