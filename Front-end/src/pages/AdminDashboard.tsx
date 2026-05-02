@@ -10,6 +10,7 @@ import {
   MapPin,
   School,
   Truck,
+  Link2,
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +24,7 @@ import AdminShifts from "./admin/AdminShifts";
 import AdminPickupPoints from "./admin/AdminPickupPoints";
 import AdminDocuments from "./admin/AdminDocuments";
 import AdminPush from "./admin/AdminPush";
+import AdminPartnerships from "./admin/AdminPartnerships";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -31,6 +33,7 @@ export default function AdminDashboard() {
 
   const navItems = [
     { label: "Painel", path: "/admin", icon: LayoutDashboard },
+    { label: "Parcerias", path: "/admin/parcerias", icon: Link2 },
     { label: "Alunos", path: "/admin/alunos", icon: GraduationCap },
     { label: "Motoristas", path: "/admin/motoristas", icon: Truck },
     { label: "Frota", path: "/admin/frota", icon: Bus },
@@ -46,6 +49,7 @@ export default function AdminDashboard() {
     <DashboardLayout navItems={navItems} title={`Administração · ${adminCity}`}>
       <Routes>
         <Route index element={<AdminOverview adminCity={adminCity} adminState={adminState} />} />
+        <Route path="parcerias" element={<AdminPartnerships />} />
         <Route path="alunos" element={<AdminStudents adminCity={adminCity} adminState={adminState} />} />
         <Route path="motoristas" element={<AdminDrivers adminCity={adminCity} adminState={adminState} />} />
         <Route path="frota" element={<AdminFleet adminCity={adminCity} adminState={adminState} />} />
