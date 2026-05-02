@@ -73,6 +73,13 @@ enum AuditAction {
   error
 }
 
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
 model City {
   id        Int      @id @default(autoincrement())
   name      String
@@ -136,19 +143,38 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  city                   City?           @relation(fields: [cityId], references: [id])
+  city                   City?            @relation(fields: [cityId], references: [id])
   documents              UserDocument[]
   reservations           Reservation[]
   sessions               Session[]
   auditLogs              AuditLog[]
-  requestedAgreements    CityAgreement[] @relation("AgreementRequestedBy")
-  approvedAgreements     CityAgreement[] @relation("AgreementApprovedBy")
+  notifications          Notification[]
+  requestedAgreements    CityAgreement[]  @relation("AgreementRequestedBy")
+  approvedAgreements     CityAgreement[]  @relation("AgreementApprovedBy")
   drivenRoutes           TransportRoute[] @relation("RouteDriver")
   reviewedDocuments      UserDocument[]   @relation("DocumentReviewedBy")
 
   @@index([role])
   @@index([cityId])
   @@index([status])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  type      NotificationType @default(info)
+  readAt    DateTime?
+  link      String?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([readAt])
+  @@index([createdAt])
 }
 
 model UserDocument {
