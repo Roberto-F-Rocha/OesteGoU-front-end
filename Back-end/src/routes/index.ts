@@ -10,7 +10,7 @@ import { getAnalyticsDashboard } from "../controllers/adminAnalyticsController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
-import { getStudentsByRoute, getMyTripPassengers } from "../controllers/studentController";
+import { getStudentsByRoute, getMyTripPassengers, getAvailableRoutes } from "../controllers/studentController";
 import { getDriverRoutes } from "../controllers/driverController";
 import { uploadDocument } from "../controllers/uploadController";
 import {
@@ -69,6 +69,8 @@ router.delete("/push/unsubscribe", auth, unsubscribePush);
 router.post("/admin/push/send", auth, cityAccess, sendPush);
 router.get("/admin/push/history", auth, cityAccess, getPushHistory);
 router.get("/admin/analytics/dashboard", auth, cityAccess, getAnalyticsDashboard);
+
+router.get("/routes/available", auth, getAvailableRoutes);
 
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
