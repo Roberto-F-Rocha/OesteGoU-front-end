@@ -4,6 +4,7 @@ import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
 import { getMyDocuments } from "../controllers/documentController";
 import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../controllers/notificationController";
+import { subscribePush, unsubscribePush } from "../controllers/pushController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
@@ -56,10 +57,12 @@ router.get("/auth/me", auth, me);
 router.post("/upload", auth, upload.single("file"), uploadDocument);
 router.get("/documents/my", auth, getMyDocuments);
 
-// NOTIFICATIONS
 router.get("/notifications/my", auth, getMyNotifications);
 router.patch("/notifications/:id/read", auth, markNotificationAsRead);
 router.patch("/notifications/read-all", auth, markAllNotificationsAsRead);
+
+router.post("/push/subscribe", auth, subscribePush);
+router.delete("/push/unsubscribe", auth, unsubscribePush);
 
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
