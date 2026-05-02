@@ -14,7 +14,7 @@ import { getStudentsByRoute, getMyTripPassengers, getAvailableRoutes } from "../
 import { getDriverRoutes, notifyDriverPendingStudents } from "../controllers/driverController";
 import { uploadDocument } from "../controllers/uploadController";
 import { listCityAgreements, createCityAgreement, updateCityAgreementStatus, listCities } from "../controllers/cityAgreementController";
-import { createReservation, getMyReservations, cancelReservation } from "../controllers/reservationController";
+import { createReservation, getMyReservations, cancelReservation, confirmReservation } from "../controllers/reservationController";
 import { getAdminDashboard, listAdminUsers, updateUserStatus, createDriver, listVehicles, createVehicle, updateVehicle, listSchedules, createSchedule, updateSchedule, listPickupPoints, createPickupPoint, updatePickupPoint, listRoutes, createRoute, updateRoute, listAuditLogs, listUniversities, createUniversity, updateUniversity } from "../controllers/adminController";
 
 const router = Router();
@@ -47,6 +47,7 @@ router.post("/driver/notify-pending-students", auth, cityAccess, notifyDriverPen
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
+router.patch("/reservations/:id/confirm", auth, confirmReservation);
 router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
 router.get("/admin/users", auth, cityAccess, listAdminUsers);
 router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
