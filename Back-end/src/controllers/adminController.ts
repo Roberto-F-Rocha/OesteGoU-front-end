@@ -384,7 +384,17 @@ export async function listRoutes(req, res) {
     orderBy: { createdAt: "desc" },
   });
 
-  return res.json(routes);
+  return res.json(
+    routes.map((r) => ({
+      ...r,
+      driver: r.driver
+        ? {
+            ...r.driver,
+            phone: maskPhone(r.driver.phone),
+          }
+        : null,
+    }))
+  );
 }
 
 export async function createRoute(req, res) {
@@ -509,7 +519,15 @@ export async function updateUniversity(req, res) {
     ...getRequestAuditData(req, res),
   });
 
-  return res.json(updated);
+  return res.json({
+    ...updated,
+    driver: updated.driver
+      ? {
+          ...updated.driver,
+          phone: maskPhone(updated.driver.phone),
+        }
+      : null,
+  });
 }
 
 export async function updateSchedule(req, res) {
@@ -703,4 +721,9 @@ export async function updateRoute(req, res) {
   });
 
   return res.json(updated);
+}
+
+function maskPhone(phone) {
+  if (!phone) return null;
+  return phone.slice(0, 2) + "*****" + phone.slice(-2);
 }
