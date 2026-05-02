@@ -9,9 +9,11 @@ import {
   GraduationCap,
   MapPin,
   Plus,
+  School,
   Search,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +66,8 @@ const FILTERS = [
   { key: "volta", label: "Volta" },
 ];
 
+const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
 function tripLabel(type?: string) {
   return type === "volta" ? "Volta" : "Ida";
 }
@@ -74,16 +78,27 @@ function routePoints(route: RouteItem) {
     .filter(Boolean) as PickupPoint[];
 }
 
+function universityName(route: RouteItem) {
+  return route.schedule?.university?.name ?? route.name;
+}
+
+const emptyForm = {
+  university: "",
+  dayOfWeek: "Segunda",
+  type: "ida" as "ida" | "volta",
+  routeId: "",
+  pickupPointId: "",
+};
+
 export default function StudentSchedules() {
   const { toast } = useToast();
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [selectedPoints, setSelectedPoints] = useState<Record<number, number>>({});
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("Todos");
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
   async function loadData(showLoading = false) {
     try {
@@ -96,17 +111,6 @@ export default function StudentSchedules() {
       const availableRoutes: RouteItem[] = routesRes.data ?? [];
       setRoutes(availableRoutes.filter((route) => route.active));
       setReservations(reservationsRes.data ?? []);
-
-      setSelectedPoints((current) => {
-        const next = { ...current };
-        availableRoutes.forEach((route) => {
-          const points = routePoints(route);
-          const confirmed = (reservationsRes.data ?? []).find((reservation: Reservation) => reservation.routeId === route.id && reservation.status === "confirmed");
-          if (confirmed?.pickupPointId) next[route.id] = confirmed.pickupPointId;
-          else if (!next[route.id] && points.length === 1) next[route.id] = points[0].id;
-        });
-        return next;
-      });
     } catch {
       toast({
         title: "Erro ao carregar horários",
@@ -131,7 +135,7 @@ export default function StudentSchedules() {
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
-      const university = route.schedule?.university?.name ?? route.name;
+      const university = universityName(route);
       const q = search.trim().toLowerCase();
       const matchSearch = q
         ? `${university} ${route.name} ${route.driver?.nome ?? ""} ${route.city?.name ?? ""}`.toLowerCase().includes(q)
@@ -148,6 +152,68 @@ export default function StudentSchedules() {
     confirmed: routes.filter((route) => confirmedRouteIds.has(route.id)).length,
   }), [routes, confirmedRouteIds]);
 
+  const universities = useMemo(() => {
+    return Array.from(new Set(routes.map(universityName))).sort((a, b) => a.localeCompare(b));
+  }, [routes]);
+
+  const formRoutes = useMemo(() => {
+    return routes.filter((route) => universityName(route) === form.university && route.schedule?.type === form.type);
+  }, [routes, form.university, form.type]);
+
+  const selectedRoute = useMemo(() => {
+    return formRoutes.find((route) => String(route.id) === form.routeId) ?? formRoutes[0];
+  }, [formRoutes, form.routeId]);
+
+  const selectedRoutePoints = selectedRoute ? routePoints(selectedRoute) : [];
+
+  function openCreate(route?: RouteItem) {
+    if (route) {
+      const points = routePoints(route);
+      setForm({
+        university: universityName(route),
+        dayOfWeek: "Segunda",
+        type: route.schedule?.type ?? "ida",
+        routeId: String(route.id),
+        pickupPointId: points.length === 1 ? String(points[0].id) : "",
+      });
+    } else {
+      setForm(emptyForm);
+    }
+    setCreateOpen(true);
+  }
+
+  function handleUniversityChange(value: string) {
+    const firstRoute = routes.find((route) => universityName(route) === value && route.schedule?.type === form.type);
+    const points = firstRoute ? routePoints(firstRoute) : [];
+    setForm((current) => ({
+      ...current,
+      university: value,
+      routeId: firstRoute ? String(firstRoute.id) : "",
+      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+    }));
+  }
+
+  function handleTypeChange(type: "ida" | "volta") {
+    const firstRoute = routes.find((route) => universityName(route) === form.university && route.schedule?.type === type);
+    const points = firstRoute ? routePoints(firstRoute) : [];
+    setForm((current) => ({
+      ...current,
+      type,
+      routeId: firstRoute ? String(firstRoute.id) : "",
+      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+    }));
+  }
+
+  function handleRouteChange(routeId: string) {
+    const route = routes.find((item) => String(item.id) === routeId);
+    const points = route ? routePoints(route) : [];
+    setForm((current) => ({
+      ...current,
+      routeId,
+      pickupPointId: points.length === 1 ? String(points[0].id) : "",
+    }));
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -163,7 +229,7 @@ export default function StudentSchedules() {
           <Badge variant="outline" className="h-9 px-3 gap-2 bg-card">
             <Bus className="w-4 h-4 text-primary" /> Atualização automática
           </Badge>
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+          <Button onClick={() => openCreate()} className="gap-2">
             <Plus className="w-4 h-4" /> Novo horário
           </Button>
         </div>
@@ -251,7 +317,7 @@ export default function StudentSchedules() {
                         <GraduationCap className="w-3.5 h-3.5 shrink-0" /> Universidade
                       </div>
                       <h3 className="font-heading font-semibold text-foreground leading-tight line-clamp-2">
-                        {route.schedule?.university?.name ?? route.name}
+                        {universityName(route)}
                       </h3>
                       <p className="text-xs text-muted-foreground mt-1 truncate">{route.name}</p>
                     </div>
@@ -300,7 +366,7 @@ export default function StudentSchedules() {
                     )}
                   </div>
 
-                  <Button className="w-full" variant="outline" onClick={() => setCreateOpen(true)}>
+                  <Button className="w-full" variant="outline" onClick={() => openCreate(route)}>
                     Usar no novo horário
                   </Button>
                 </motion.div>
@@ -312,14 +378,103 @@ export default function StudentSchedules() {
 
       {createOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-lg shadow-xl">
-            <h2 className="font-heading font-bold text-xl text-foreground">Novo horário</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Na próxima etapa vamos adicionar o formulário completo: universidade, dia, turno e ponto.
-            </p>
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-heading font-bold text-xl text-foreground flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" /> Novo horário
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Escolha universidade, dia, turno e ponto para montar sua semana.
+                </p>
+              </div>
+              <button onClick={() => setCreateOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mt-5">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><School className="w-4 h-4 text-primary" /> Universidade</Label>
+                <select value={form.university} onChange={(event) => handleUniversityChange(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="">Selecione uma universidade...</option>
+                  {universities.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dia da semana</Label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {DAYS.map((day) => (
+                    <button key={day} type="button" onClick={() => setForm((current) => ({ ...current, dayOfWeek: day }))} className={cn("px-2 py-2 text-xs font-medium rounded-md border transition-colors", form.dayOfWeek === day ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40")}>{day.slice(0, 3)}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Turno</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["ida", "volta"] as const).map((type) => (
+                    <button key={type} type="button" onClick={() => handleTypeChange(type)} className={cn("rounded-lg border p-3 text-left transition-all", form.type === type ? "bg-primary/10 border-primary ring-2 ring-primary/20" : "bg-background border-border hover:border-primary/40")}>
+                      <p className={cn("font-heading font-semibold text-sm", form.type === type ? "text-primary" : "text-foreground")}>{tripLabel(type)}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Rotas de {tripLabel(type).toLowerCase()} cadastradas pelo administrador</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {formRoutes.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Rota disponível</Label>
+                  <select value={form.routeId} onChange={(event) => handleRouteChange(event.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    {formRoutes.map((route) => <option key={route.id} value={route.id}>{route.name} · {route.schedule?.time ?? "--:--"}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {selectedRoute ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
+                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+                      <ArrowLeftRight className={cn("w-3 h-3", selectedRoute.schedule?.type === "volta" ? "text-accent rotate-180" : "text-primary")} /> {tripLabel(selectedRoute.schedule?.type)}
+                    </div>
+                    <p className="font-heading font-bold text-foreground text-lg">{selectedRoute.schedule?.time ?? "--:--"}</p>
+                    <p className="text-xs text-muted-foreground">{selectedRoute.name}</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3 space-y-2 bg-background/40">
+                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-medium text-muted-foreground">
+                      <User className="w-3 h-3 text-primary" /> Motorista
+                    </div>
+                    <p className="font-heading font-semibold text-foreground text-sm">{selectedRoute.driver?.nome ?? "Aguardando alocação"}</p>
+                    <p className="text-xs text-muted-foreground">{selectedRoute.vehicle ? `${selectedRoute.vehicle.name ?? "Ônibus"} · ${selectedRoute.vehicle.plate}` : "Veículo aguardando alocação"}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                  Nenhuma rota encontrada para essa universidade e turno.
+                </div>
+              )}
+
+              {selectedRoute && selectedRoutePoints.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Ponto</Label>
+                  <select value={form.pickupPointId} onChange={(event) => setForm((current) => ({ ...current, pickupPointId: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="">Selecione o ponto...</option>
+                    {selectedRoutePoints.map((point) => <option key={point.id} value={point.id}>{point.name}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {selectedRoute && selectedRoutePoints.length === 1 && (
+                <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" /> {selectedRoutePoints[0].name}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button disabled>Continuar</Button>
+              <Button disabled>Salvar na parte 3</Button>
             </div>
           </div>
         </div>
