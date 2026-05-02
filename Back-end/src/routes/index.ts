@@ -3,11 +3,7 @@ import multer from "multer";
 import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
 import { getMyDocuments, listAdminDocuments, reviewDocument, downloadDocument, viewDocument } from "../controllers/documentController";
-import {
-  getMyNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from "../controllers/notificationController";
+import { getMyNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../controllers/notificationController";
 import { subscribePush, unsubscribePush } from "../controllers/pushController";
 import { sendPush, getPushHistory } from "../controllers/adminPushController";
 import { getAnalyticsDashboard } from "../controllers/adminAnalyticsController";
@@ -15,41 +11,11 @@ import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
 import { loginRateLimit } from "../middlewares/security";
 import { getStudentsByRoute, getMyTripPassengers, getAvailableRoutes } from "../controllers/studentController";
-import { getDriverRoutes } from "../controllers/driverController";
+import { getDriverRoutes, notifyDriverPendingStudents } from "../controllers/driverController";
 import { uploadDocument } from "../controllers/uploadController";
-import {
-  listCityAgreements,
-  createCityAgreement,
-  updateCityAgreementStatus,
-  listCities,
-} from "../controllers/cityAgreementController";
-import {
-  createReservation,
-  getMyReservations,
-  cancelReservation,
-} from "../controllers/reservationController";
-import {
-  getAdminDashboard,
-  listAdminUsers,
-  updateUserStatus,
-  createDriver,
-  listVehicles,
-  createVehicle,
-  updateVehicle,
-  listSchedules,
-  createSchedule,
-  updateSchedule,
-  listPickupPoints,
-  createPickupPoint,
-  updatePickupPoint,
-  listRoutes,
-  createRoute,
-  updateRoute,
-  listAuditLogs,
-  listUniversities,
-  createUniversity,
-  updateUniversity,
-} from "../controllers/adminController";
+import { listCityAgreements, createCityAgreement, updateCityAgreementStatus, listCities } from "../controllers/cityAgreementController";
+import { createReservation, getMyReservations, cancelReservation } from "../controllers/reservationController";
+import { getAdminDashboard, listAdminUsers, updateUserStatus, createDriver, listVehicles, createVehicle, updateVehicle, listSchedules, createSchedule, updateSchedule, listPickupPoints, createPickupPoint, updatePickupPoint, listRoutes, createRoute, updateRoute, listAuditLogs, listUniversities, createUniversity, updateUniversity } from "../controllers/adminController";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -59,29 +25,25 @@ router.post("/auth/logout", auth, logout);
 router.post("/auth/register", registerUser);
 router.post("/auth/refresh", refresh);
 router.get("/auth/me", auth, me);
-
 router.post("/upload", auth, upload.single("file"), uploadDocument);
 router.get("/documents/my", auth, getMyDocuments);
 router.get("/documents/:id/view", auth, viewDocument);
 router.get("/documents/:id/download", auth, downloadDocument);
 router.get("/admin/documents", auth, cityAccess, listAdminDocuments);
 router.patch("/admin/documents/:id/review", auth, cityAccess, reviewDocument);
-
 router.get("/notifications/my", auth, getMyNotifications);
 router.patch("/notifications/read-all", auth, markAllNotificationsAsRead);
 router.patch("/notifications/:id/read", auth, markNotificationAsRead);
-
 router.post("/push/subscribe", auth, subscribePush);
 router.delete("/push/unsubscribe", auth, unsubscribePush);
-
 router.post("/admin/push/send", auth, cityAccess, sendPush);
 router.get("/admin/push/history", auth, cityAccess, getPushHistory);
 router.get("/admin/analytics/dashboard", auth, cityAccess, getAnalyticsDashboard);
-
 router.get("/routes/available", auth, getAvailableRoutes);
 router.get("/students/by-route/:routeId", auth, cityAccess, getStudentsByRoute);
 router.get("/students/my-trip-passengers", auth, getMyTripPassengers);
 router.get("/driver/routes", auth, cityAccess, getDriverRoutes);
+router.post("/driver/notify-pending-students", auth, cityAccess, notifyDriverPendingStudents);
 router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
