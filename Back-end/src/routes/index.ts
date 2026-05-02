@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { login, me, refresh } from "../controllers/authController";
+import { login, logout, me, refresh } from "../controllers/authController";
 import { registerUser } from "../controllers/registerController";
 import { auth } from "../middlewares/auth";
 import { cityAccess } from "../middlewares/cityAccess";
+import { loginRateLimit } from "../middlewares/security";
 import { getStudentsByRoute } from "../controllers/studentController";
 import { getDriverRoutes } from "../controllers/driverController";
 import {
@@ -35,7 +36,8 @@ import {
 
 const router = Router();
 
-router.post("/auth/login", login);
+router.post("/auth/login", loginRateLimit, login);
+router.post("/auth/logout", auth, logout);
 router.post("/auth/register", registerUser);
 router.post("/auth/refresh", refresh);
 router.get("/auth/me", auth, me);
@@ -61,7 +63,7 @@ router.post("/reservations", auth, createReservation);
 router.get("/my-reservations", auth, getMyReservations);
 router.patch("/reservations/:id/cancel", auth, cancelReservation);
 
-// 🔥 ADMIN
+// ADMIN
 router.get("/admin/dashboard", auth, cityAccess, getAdminDashboard);
 router.get("/admin/users", auth, cityAccess, listAdminUsers);
 router.patch("/admin/users/:id/status", auth, cityAccess, updateUserStatus);
