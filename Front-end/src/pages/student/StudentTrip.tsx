@@ -24,9 +24,10 @@ interface Reservation {
 }
 
 interface Passenger { nome: string; instituicao?: string | null; ponto?: string | null; }
-type WeekViewMode = "todos" | "dia";
+type WeekViewMode = "todos" | "hoje";
 
 const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const ALL_DAYS_FILTER = "Todos";
 const WEEK_VIEW_KEY = "oestegou_student_trip_week_view_mode";
 const WEEK_DAY_KEY = "oestegou_student_trip_selected_week_day";
 
@@ -53,13 +54,14 @@ export default function StudentTrip() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [weekViewMode, setWeekViewMode] = useState<WeekViewMode>(() => {
     const saved = localStorage.getItem(WEEK_VIEW_KEY);
-    return saved === "dia" ? "dia" : "todos";
+    return saved === "hoje" ? "hoje" : "todos";
   });
   const [selectedWeekDay, setSelectedWeekDay] = useState(() => {
     const saved = localStorage.getItem(WEEK_DAY_KEY);
-    return saved && DAYS.includes(saved) ? saved : todayName();
+    return saved && (DAYS.includes(saved) || saved === ALL_DAYS_FILTER) ? saved : ALL_DAYS_FILTER;
   });
 
+  const todayDay = todayName();
   const today = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
   function updateWeekViewMode(mode: WeekViewMode) {
@@ -88,7 +90,11 @@ export default function StudentTrip() {
     return grouped;
   }, [activeReservations]);
 
-  const visibleDays = weekViewMode === "dia" ? [selectedWeekDay] : DAYS;
+  const visibleDays = weekViewMode === "hoje"
+    ? [todayDay]
+    : selectedWeekDay === ALL_DAYS_FILTER
+      ? DAYS
+      : [selectedWeekDay];
   const visibleReservations = useMemo(() => visibleDays.flatMap((day) => groupedReservations[day] ?? []), [visibleDays, groupedReservations]);
 
   async function loadData() {
@@ -173,12 +179,12 @@ export default function StudentTrip() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant={weekViewMode === "todos" ? "default" : "outline"} onClick={() => updateWeekViewMode("todos")}>Todos os horários</Button>
-              <Button size="sm" variant={weekViewMode === "dia" ? "default" : "outline"} onClick={() => updateWeekViewMode("dia")}>Apenas um dia</Button>
+              <Button size="sm" variant={weekViewMode === "hoje" ? "default" : "outline"} onClick={() => updateWeekViewMode("hoje")}>Horário de hoje</Button>
             </div>
           </div>
-          {weekViewMode === "dia" && (
+          {weekViewMode === "todos" && (
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {DAYS.map((day) => (
+              {[ALL_DAYS_FILTER, ...DAYS].map((day) => (
                 <button
                   key={day}
                   type="button"
@@ -190,7 +196,7 @@ export default function StudentTrip() {
                       : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
                   )}
                 >
-                  {day.slice(0, 3)}
+                  {day === ALL_DAYS_FILTER ? "Todos" : day.slice(0, 3)}
                 </button>
               ))}
             </div>
@@ -202,13 +208,13 @@ export default function StudentTrip() {
             <div className="p-6 text-center space-y-3">
               <Clock className="w-9 h-9 mx-auto text-muted-foreground" />
               <p className="font-heading font-semibold text-foreground">Nenhuma viagem encontrada</p>
-              <p className="text-sm text-muted-foreground">{weekViewMode === "dia" ? `Você não possui horários salvos para ${selectedWeekDay}.` : "Entre em Horários para escolher sua ida e volta."}</p>
+              <p className="text-sm text-muted-foreground">{weekViewMode === "hoje" ? `Você não possui horários salvos para hoje (${todayDay}).` : selectedWeekDay === ALL_DAYS_FILTER ? "Entre em Horários para escolher sua ida e volta." : `Você não possui horários salvos para ${selectedWeekDay}.`}</p>
               <Button size="sm" onClick={() => window.location.assign("/aluno/horarios")}>Escolher horário</Button>
             </div>
           ) : visibleDays.map((day) => (
             <div key={day} className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-heading font-semibold text-foreground">{day}</h3>
+                <h3 className="font-heading font-semibold text-foreground">{weekViewMode === "hoje" ? `Hoje · ${day}` : day}</h3>
                 <Badge variant="secondary">{groupedReservations[day]?.length ?? 0}</Badge>
               </div>
               {(groupedReservations[day]?.length ?? 0) === 0 ? (
