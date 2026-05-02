@@ -23,10 +23,16 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
+const WEEK_VIEW_KEY = "oestegou_student_week_view_mode";
+const WEEK_DAY_KEY = "oestegou_student_selected_week_day";
+
 interface PickupPoint {
   id: number;
   name: string;
   address?: string | null;
+  type?: "ida" | "volta";
+  active?: boolean;
+  universityId?: number | null;
 }
 
 interface RoutePoint {
@@ -76,10 +82,11 @@ function tripLabel(type?: string) {
   return type === "volta" ? "Volta" : "Ida";
 }
 
-function routePoints(route?: RouteItem | null) {
+function routePoints(route?: RouteItem | null, type?: "ida" | "volta") {
   return (route?.points ?? [])
     .map((item) => item.pickupPoint)
-    .filter(Boolean) as PickupPoint[];
+    .filter((point): point is PickupPoint => Boolean(point && point.active !== false))
+    .filter((point) => !type || !point.type || point.type === type);
 }
 
 function universityName(route: RouteItem) {
@@ -113,6 +120,12 @@ function displayRoutePath(route?: RouteItem | null, fallbackUniversity = "Univer
   return route.schedule?.type === "volta" ? `${university} → ${city}` : `${city} → ${university}`;
 }
 
+function todayName() {
+  const map = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const day = map[new Date().getDay()];
+  return DAYS.includes(day) ? day : "Segunda";
+}
+
 const emptyForm = {
   university: "",
   dayOfWeek: "Segunda",
@@ -133,6 +146,24 @@ export default function StudentSchedules() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [weekViewMode, setWeekViewMode] = useState<"todos" | "dia">(() => {
+    const saved = localStorage.getItem(WEEK_VIEW_KEY);
+    return saved === "dia" ? "dia" : "todos";
+  });
+  const [selectedWeekDay, setSelectedWeekDay] = useState(() => {
+    const saved = localStorage.getItem(WEEK_DAY_KEY);
+    return saved && DAYS.includes(saved) ? saved : todayName();
+  });
+
+  function updateWeekViewMode(mode: "todos" | "dia") {
+    setWeekViewMode(mode);
+    localStorage.setItem(WEEK_VIEW_KEY, mode);
+  }
+
+  function updateSelectedWeekDay(day: string) {
+    setSelectedWeekDay(day);
+    localStorage.setItem(WEEK_DAY_KEY, day);
+  }
 
   async function loadData(showLoading = false) {
     try {
@@ -188,6 +219,8 @@ export default function StudentSchedules() {
     return grouped;
   }, [activeReservations]);
 
+  const visibleDays = weekViewMode === "dia" ? [selectedWeekDay] : DAYS;
+
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
       const university = universityName(route);
@@ -216,7 +249,7 @@ export default function StudentSchedules() {
   const availableShifts = useMemo(() => {
     if (!form.university) return [];
     return SHIFTS.filter((shift) =>
-      universityRoutes.some((route) => route.schedule?.type === "ida" && routeBelongsToShift(route, shift.key)) ||
+      universityRoutes.some((route) => route.schedule?.type === "ida" && routeBelongsToShift(route, shift.key)) &&
       universityRoutes.some((route) => route.schedule?.type === "volta" && routeBelongsToShift(route, shift.key)),
     );
   }, [form.university, universityRoutes]);
@@ -243,8 +276,8 @@ export default function StudentSchedules() {
     return returnRoutesForShift.find((route) => String(route.id) === form.returnRouteId) ?? returnRoutesForShift[0] ?? null;
   }, [returnRoutesForShift, form.returnRouteId]);
 
-  const goingPoints = routePoints(goingRoute);
-  const returnPoints = routePoints(returnRoute);
+  const goingPoints = routePoints(goingRoute, "ida");
+  const returnPoints = routePoints(returnRoute, "volta");
 
   const canSave =
     !!goingRoute?.schedule?.id &&
@@ -265,15 +298,15 @@ export default function StudentSchedules() {
       const returning = routesFromUniversity.find((item) => item.schedule?.type === "volta" && routeBelongsToShift(item, shift));
       setForm({
         university,
-        dayOfWeek: "Segunda",
+        dayOfWeek: selectedWeekDay,
         shift,
         goingRouteId: going ? String(going.id) : "",
         returnRouteId: returning ? String(returning.id) : "",
-        goingPickupPointId: autoPointId(routePoints(going)),
-        returnPickupPointId: autoPointId(routePoints(returning)),
+        goingPickupPointId: autoPointId(routePoints(going, "ida")),
+        returnPickupPointId: autoPointId(routePoints(returning, "volta")),
       });
     } else {
-      setForm(emptyForm);
+      setForm({ ...emptyForm, dayOfWeek: selectedWeekDay });
     }
     setCreateOpen(true);
   }
@@ -299,8 +332,8 @@ export default function StudentSchedules() {
       shift,
       goingRouteId: going ? String(going.id) : "",
       returnRouteId: returning ? String(returning.id) : "",
-      goingPickupPointId: autoPointId(routePoints(going)),
-      returnPickupPointId: autoPointId(routePoints(returning)),
+      goingPickupPointId: autoPointId(routePoints(going, "ida")),
+      returnPickupPointId: autoPointId(routePoints(returning, "volta")),
     }));
   }
 
@@ -309,7 +342,7 @@ export default function StudentSchedules() {
     setForm((current) => ({
       ...current,
       goingRouteId: routeId,
-      goingPickupPointId: autoPointId(routePoints(route)),
+      goingPickupPointId: autoPointId(routePoints(route, "ida")),
     }));
   }
 
@@ -318,7 +351,7 @@ export default function StudentSchedules() {
     setForm((current) => ({
       ...current,
       returnRouteId: routeId,
-      returnPickupPointId: autoPointId(routePoints(route)),
+      returnPickupPointId: autoPointId(routePoints(route, "volta")),
     }));
   }
 
@@ -411,14 +444,50 @@ export default function StudentSchedules() {
       </div>
 
       <section className="bg-card border border-border rounded-xl p-4 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-heading font-semibold text-foreground flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" /> Minha semana
             </h2>
             <p className="text-sm text-muted-foreground">Seus horários salvos por dia.</p>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={weekViewMode === "todos" ? "default" : "outline"}
+              onClick={() => updateWeekViewMode("todos")}
+            >
+              Todos os horários
+            </Button>
+            <Button
+              size="sm"
+              variant={weekViewMode === "dia" ? "default" : "outline"}
+              onClick={() => updateWeekViewMode("dia")}
+            >
+              Apenas um dia
+            </Button>
+          </div>
         </div>
+
+        {weekViewMode === "dia" && (
+          <div className="flex flex-wrap gap-1.5">
+            {DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => updateSelectedWeekDay(day)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors border",
+                  selectedWeekDay === day
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+                )}
+              >
+                {day.slice(0, 3)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {activeReservations.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-8 text-center">
@@ -428,7 +497,7 @@ export default function StudentSchedules() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {DAYS.map((day) => (
+            {visibleDays.map((day) => (
               <div key={day} className="rounded-xl border border-border bg-background/40 p-3 space-y-2 min-h-[120px]">
                 <div className="flex items-center justify-between">
                   <p className="font-heading font-semibold text-foreground">{day}</p>
@@ -638,7 +707,7 @@ export default function StudentSchedules() {
                         )}
                       >
                         <p className={cn("font-heading font-semibold text-sm", selected ? "text-primary" : "text-foreground")}>{shift.label}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Rotas disponíveis" : "Sem rota"}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{enabled ? "Ida e volta disponíveis" : "Sem rota completa"}</p>
                       </button>
                     );
                   })}
