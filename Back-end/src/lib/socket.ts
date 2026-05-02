@@ -17,10 +17,13 @@ export function initSocket(server: any) {
     if (!token) return next();
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      const secret = process.env.JWT_ACCESS_SECRET;
+      if (!secret) throw new Error("JWT_ACCESS_SECRET não definido");
+      const decoded = jwt.verify(token, secret);
       socket.data.user = decoded;
       return next();
-    } catch {
+    } catch (error) {
+      console.error("[socket] Falha ao autenticar conexão", error);
       return next(new Error("Token inválido"));
     }
   });
@@ -28,17 +31,9 @@ export function initSocket(server: any) {
   io.on("connection", (socket) => {
     const user = socket.data.user as any;
 
-    if (user?.id) {
-      socket.join(`user_${user.id}`);
-    }
-
-    if (user?.role) {
-      socket.join(`role_${user.role}`);
-    }
-
-    if (user?.cityId) {
-      socket.join(`city_${user.cityId}`);
-    }
+    if (user?.id) socket.join(`user_${user.id}`);
+    if (user?.role) socket.join(`role_${user.role}`);
+    if (user?.cityId) socket.join(`city_${user.cityId}`);
 
     socket.on("join_user", (userId) => socket.join(`user_${userId}`));
     socket.on("join_city", (cityId) => socket.join(`city_${cityId}`));
@@ -48,22 +43,8 @@ export function initSocket(server: any) {
   return io;
 }
 
-export function getIO() {
-  return io;
-}
-
-export function emitToUser(userId: number, event: string, payload: unknown) {
-  io?.to(`user_${userId}`).emit(event, payload);
-}
-
-export function emitToCity(cityId: number, event: string, payload: unknown) {
-  io?.to(`city_${cityId}`).emit(event, payload);
-}
-
-export function emitToRoute(routeId: number, event: string, payload: unknown) {
-  io?.to(`route_${routeId}`).emit(event, payload);
-}
-
-export function emitToAdmins(event: string, payload: unknown) {
-  io?.to("role_admin").emit(event, payload);
-}
+export function getIO() { return io; }
+export function emitToUser(userId: number, event: string, payload: unknown) { io?.to(`user_${userId}`).emit(event, payload); }
+export function emitToCity(cityId: number, event: string, payload: unknown) { io?.to(`city_${cityId}`).emit(event, payload); }
+export function emitToRoute(routeId: number, event: string, payload: unknown) { io?.to(`route_${routeId}`).emit(event, payload); }
+export function emitToAdmins(event: string, payload: unknown) { io?.to("role_admin").emit(event, payload); }
