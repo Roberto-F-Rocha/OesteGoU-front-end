@@ -7,6 +7,8 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { securityMiddleware } from "./middlewares/security";
 import { sanitizeInput } from "./middlewares/sanitize";
 import { startPushJobs } from "./jobs/pushJob";
+import http from "http";
+import { initSocket } from "./lib/socket";
 
 const app = express();
 
@@ -14,11 +16,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use(securityMiddleware);
-
 app.use(sanitizeInput);
-
 app.use(auditLogger);
-
 app.use(routes);
 
 app.get("/", (req, res) => {
@@ -27,7 +26,10 @@ app.get("/", (req, res) => {
 
 startPushJobs();
 
-app.listen(3001, () => {
+const server = http.createServer(app);
+initSocket(server);
+
+server.listen(3001, () => {
   console.log("Servidor rodando na porta 3001");
 });
 

@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { emitToAdmins, emitToCity, emitToRoute, emitToUser } from "../lib/socket";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
 import {
   createReservationSchema,
@@ -10,17 +11,27 @@ function tripLabel(type) {
 }
 
 async function notifyUser(userId, title, message, type = "info", metadata = {}) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: { userId, title, message, type, metadata },
   });
+
+  emitToUser(userId, "notification:new", notification);
+  return notification;
 }
 
 async function notifyUsers(userIds, title, message, type = "info", metadata = {}) {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
   if (uniqueUserIds.length === 0) return;
-  await prisma.notification.createMany({
+
+  const notifications = await prisma.notification.createMany({
     data: uniqueUserIds.map((userId) => ({ userId, title, message, type, metadata })),
   });
+
+  uniqueUserIds.forEach((userId) => {
+    emitToUser(userId, "notification:new", { title, message, type, metadata });
+  });
+
+  return notifications;
 }
 
 async function notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity }) {
@@ -41,21 +52,30 @@ async function notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek
     ...existingPassengers.map((passenger) => passenger.userId),
   ];
 
+  const payload = {
+    reservationId: reservation.id,
+    scheduleId: schedule.id,
+    routeId: route.id,
+    cityId: route.cityId,
+    dayOfWeek,
+    capacity,
+    currentCount,
+    overcapacity: currentCount > capacity,
+    scheduleTime: schedule.time,
+    tripType: schedule.type,
+  };
+
   await notifyUsers(
     recipients,
     "Ônibus superlotado",
     `${dayOfWeek ?? "Dia selecionado"}: a ${tripLabel(schedule.type)} às ${schedule.time} ultrapassou a capacidade do ônibus (${currentCount}/${capacity}). A reserva foi mantida para dar visibilidade ao problema.`,
     "warning",
-    {
-      reservationId: reservation.id,
-      scheduleId: schedule.id,
-      routeId: route.id,
-      dayOfWeek,
-      capacity,
-      currentCount,
-      overcapacity: true,
-    },
+    payload,
   );
+
+  emitToRoute(route.id, "route:capacity-alert", payload);
+  emitToCity(route.cityId, "route:capacity-alert", payload);
+  emitToAdmins("admin:capacity-alert", payload);
 }
 
 export async function createReservation(req, res) {
@@ -139,6 +159,24 @@ export async function createReservation(req, res) {
     { reservationId: reservation.id, scheduleId, routeId, pickupPointId, dayOfWeek, capacity, currentCount, overcapacity: isOvercapacity },
   );
 
+  if (route) {
+    const payload = {
+      reservationId: reservation.id,
+      routeId: route.id,
+      cityId: route.cityId,
+      scheduleId,
+      pickupPointId,
+      dayOfWeek,
+      capacity,
+      currentCount,
+      overcapacity: isOvercapacity,
+    };
+
+    emitToUser(user.id, "reservation:created", reservation);
+    emitToRoute(route.id, "route:occupancy-updated", payload);
+    emitToCity(route.cityId, "route:occupancy-updated", payload);
+  }
+
   if (route && capacity && (reachedCapacity || isOvercapacity)) {
     await notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity });
   }
@@ -191,6 +229,18 @@ export async function cancelReservation(req, res) {
     "warning",
     { reservationId: reservation.id, scheduleId: reservation.scheduleId, routeId: reservation.routeId, dayOfWeek: reservation.dayOfWeek },
   );
+
+  emitToUser(reservation.userId, "reservation:canceled", updated);
+
+  if (reservation.routeId) {
+    emitToRoute(reservation.routeId, "route:occupancy-updated", {
+      reservationId: reservation.id,
+      routeId: reservation.routeId,
+      scheduleId: reservation.scheduleId,
+      dayOfWeek: reservation.dayOfWeek,
+      status: "canceled",
+    });
+  }
 
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "cancel", entity: "Reservation", entityId: updated.id, description: "Reserva cancelada", ...getRequestAuditData(req, res) });
   return res.json(updated);
