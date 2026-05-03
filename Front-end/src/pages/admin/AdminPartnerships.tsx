@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, Bus, CheckCircle2, City, Clock, Link2, MessageSquareWarning, Plus, RefreshCw, Users, XCircle } from "lucide-react";
+import { AlertTriangle, BarChart3, Bus, CheckCircle2, Building2, Clock, Link2, MessageSquareWarning, Plus, RefreshCw, Users, XCircle } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -233,7 +233,7 @@ export default function AdminPartnerships() {
 
         <div className="xl:col-span-2 rounded-2xl border border-border bg-card p-5 space-y-4">
           <div>
-            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><City className="w-5 h-5 text-primary" /> Vínculos existentes</h2>
+            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><Building2 className="w-5 h-5 text-primary" /> Vínculos existentes</h2>
             <p className="text-xs text-muted-foreground">Solicitações e parcerias da sua cidade.</p>
           </div>
           {agreements.length === 0 ? <EmptyState text="Nenhum vínculo encontrado." /> : (
