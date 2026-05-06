@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Eye, FileText, Search } from "lucide-react";
+import { CheckCircle2, Download, Eye, FileText, Search, XCircle } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,7 @@ export default function AdminDocuments({ adminCity, adminState }: Props) {
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [reviewingId, setReviewingId] = useState<numver | null>(null);
 
   const cityName = adminCity ?? user?.city?.name;
   const stateName = adminState ?? user?.city?.state;

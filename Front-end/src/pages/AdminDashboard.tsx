@@ -28,8 +28,8 @@ import AdminPartnerships from "./admin/AdminPartnerships";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const adminCity = user?.city ?? "Riacho da Cruz";
-  const adminState = user?.state ?? "RN";
+  const adminCity = user?.city.name ?? "Riacho da Cruz";
+  const adminState = user?.city.state ?? "RN";
 
   const navItems = [
     { label: "Painel", path: "/admin", icon: LayoutDashboard },

@@ -27,7 +27,7 @@ async function createUser(passwordHash: string, data: any) {
   return prisma.user.create({
     data: {
       senha: passwordHash,
-      status: "active",
+      status: data.status ?? "active",
       ...data,
     },
   });
@@ -108,7 +108,7 @@ async function main() {
     cityId: apodi.id,
   });
 
-  const adminPau = await createUser(senhaPadrao, {
+  const adminPDF = await createUser(senhaPadrao, {
     nome: "Administrador Pau dos Ferros",
     email: "admin.pau@demo.com",
     role: "admin",

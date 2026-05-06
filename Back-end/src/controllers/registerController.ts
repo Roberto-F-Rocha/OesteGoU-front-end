@@ -74,7 +74,7 @@ export async function registerUser(req, res) {
       number: data.number,
       neighborhood: data.neighborhood,
       cityId: city.id,
-      status: data.role === "admin" ? "active" : "pending",
+      status: "pending",
     },
   });
 
@@ -88,5 +88,24 @@ export async function registerUser(req, res) {
     ...getRequestAuditData(req, res),
   });
 
-  return res.status(201).json(user);
+  return res.status(201).json({
+    id: user.id,
+    nome: user.nome,
+    name: user.nome,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    cpf: user.cpf,
+    phone: user.phone,
+    birthDate: user.birthDate,
+    institution: user.institution,
+    photo: user.photo,
+    cep: user.cep,
+    street: user.street,
+    number: user.number,
+    neighborhood: user.neighborhood,
+    cityId: user.cityId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  });
 }
