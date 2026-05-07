@@ -34,7 +34,9 @@ function scanBufferForEmbeddedPayload(buffer: Buffer) {
   return null;
 }
 
-async function callExternalModeration(file: Express.Multer.File): Promise<ModerationResult | null> {
+async function callExternalModeration(
+  file: Express.Multer.File,
+): Promise<ModerationResult | null> {
   if (!EXTERNAL_MODERATION_URL) return null;
 
   const response = await fetch(EXTERNAL_MODERATION_URL, {
@@ -45,7 +47,7 @@ async function callExternalModeration(file: Express.Multer.File): Promise<Modera
         ? { Authorization: `Bearer ${EXTERNAL_MODERATION_API_KEY}` }
         : {}),
     },
-    body: file.buffer,
+    body: file.buffer as unknown as BodyInit,
   });
 
   if (!response.ok) {
@@ -66,7 +68,7 @@ async function callExternalModeration(file: Express.Multer.File): Promise<Modera
       result.hate ||
       result.self_harm ||
       result.malware ||
-      result.blocked
+      result.blocked,
   );
 
   if (isUnsafe) {
@@ -85,7 +87,9 @@ async function callExternalModeration(file: Express.Multer.File): Promise<Modera
   };
 }
 
-export async function moderateUploadedFile(file: Express.Multer.File): Promise<ModerationResult> {
+export async function moderateUploadedFile(
+  file: Express.Multer.File,
+): Promise<ModerationResult> {
   const localScan = scanBufferForEmbeddedPayload(file.buffer);
 
   if (localScan) return localScan;

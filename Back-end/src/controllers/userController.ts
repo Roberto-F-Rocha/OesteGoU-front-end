@@ -12,7 +12,7 @@ export async function register(req, res) {
         nome,
         email,
         senha: hashedPassword,
-        role: "aluno",
+        role: "student",
       },
     });
 

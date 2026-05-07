@@ -1,177 +1,325 @@
 import fs from "fs";
 import path from "path";
+import {
+    DocumentStatus,
+    DocumentType,
+    NotificationType,
+    Prisma,
+} from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
 
 function documentLabel(type) {
-  const labels = {
-    profile_photo: "foto de perfil",
-    enrollment_proof: "comprovante de matrícula",
-    driver_license: "CNH",
-    general: "documento geral",
-  };
-  return labels[type] ?? "documento";
+    const labels = {
+        profile_photo: "foto de perfil",
+        enrollment_proof: "comprovante de matrícula",
+        driver_license: "CNH",
+        general: "documento geral",
+    };
+
+    return labels[type] ?? "documento";
 }
 
-async function notifyUser(userId, title, message, type = "info", metadata = {}) {
-  return prisma.notification.create({ data: { userId, title, message, type, metadata } });
+async function notifyUser(
+    userId: number,
+    title: string,
+    message: string,
+    type: NotificationType = NotificationType.info,
+    metadata: Record<string, unknown> = {},
+) {
+    return prisma.notification.create({
+        data: {
+            userId,
+            title,
+            message,
+            type,
+            metadata: metadata as Prisma.InputJsonObject,
+        },
+    });
 }
 
 function ensureAdmin(req, res) {
-  if (req.user?.role !== "admin") {
-    res.status(403).json({ error: "Acesso permitido apenas para administradores" });
-    return false;
-  }
-  return true;
+    if (req.user?.role !== "admin") {
+        res.status(403).json({
+            error: "Acesso permitido apenas para administradores",
+        });
+        return false;
+    }
+
+    return true;
 }
 
 function canAccessDocument(req, document) {
-  const cityIds = req.allowedCities ?? [req.user.cityId];
-  const isOwner = document.userId === req.user.id;
-  const isAdminAllowed = req.user.role === "admin" && document.user?.cityId && cityIds.includes(document.user.cityId);
-  return isOwner || isAdminAllowed;
+    const cityIds = req.allowedCities ?? [req.user.cityId];
+    const isOwner = document.userId === req.user.id;
+    const isAdminAllowed =
+        req.user.role === "admin" &&
+        document.user?.cityId &&
+        cityIds.includes(document.user.cityId);
+
+    return isOwner || isAdminAllowed;
 }
 
 function sendDocumentFile(res, document, inline = false) {
-  if (document.fileData) {
-    const buffer = Buffer.isBuffer(document.fileData) ? document.fileData : Buffer.from(document.fileData);
-    res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
-    res.setHeader("Content-Length", buffer.length);
-    res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(document.fileName)}"`);
-    return res.send(buffer);
-  }
+    if (document.fileData) {
+        const buffer = Buffer.isBuffer(document.fileData)
+            ? document.fileData
+            : Buffer.from(document.fileData);
 
-  if (document.filePath) {
-    const absolutePath = path.resolve(process.cwd(), document.filePath);
-    if (!fs.existsSync(absolutePath)) return res.status(404).json({ error: "Arquivo físico não encontrado" });
-    if (inline) {
-      res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
-      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(document.fileName)}"`);
-      return fs.createReadStream(absolutePath).pipe(res);
+        res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
+        res.setHeader("Content-Length", buffer.length);
+        res.setHeader(
+            "Content-Disposition",
+            `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(
+                document.fileName,
+            )}"`,
+        );
+
+        return res.send(buffer);
     }
-    return res.download(absolutePath, document.fileName);
-  }
 
-  return res.status(404).json({ error: "Arquivo não encontrado no banco" });
+    if (document.filePath) {
+        const absolutePath = path.resolve(process.cwd(), document.filePath);
+
+        if (!fs.existsSync(absolutePath)) {
+            return res.status(404).json({ error: "Arquivo físico não encontrado" });
+        }
+
+        if (inline) {
+            res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
+            res.setHeader(
+                "Content-Disposition",
+                `inline; filename="${encodeURIComponent(document.fileName)}"`,
+            );
+
+            return fs.createReadStream(absolutePath).pipe(res);
+        }
+
+        return res.download(absolutePath, document.fileName);
+    }
+
+    return res.status(404).json({ error: "Arquivo não encontrado no banco" });
 }
 
 export async function getMyDocuments(req, res) {
-  const userId = req.user.id;
+    const userId = req.user.id;
 
-  const documents = await prisma.userDocument.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      type: true,
-      fileName: true,
-      filePath: true,
-      mimeType: true,
-      sizeBytes: true,
-      status: true,
-      moderationStatus: true,
-      moderationReason: true,
-      reviewedAt: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+    const documents = await prisma.userDocument.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+            id: true,
+            type: true,
+            fileName: true,
+            filePath: true,
+            mimeType: true,
+            sizeBytes: true,
+            status: true,
+            moderationStatus: true,
+            moderationReason: true,
+            reviewedAt: true,
+            createdAt: true,
+            updatedAt: true,
+        },
+    });
 
-  return res.json(documents);
+    return res.json(documents);
 }
 
 export async function listAdminDocuments(req, res) {
-  if (!ensureAdmin(req, res)) return;
-  const cityIds = req.allowedCities ?? [req.user.cityId];
-  const { status, type } = req.query;
+    if (!ensureAdmin(req, res)) return;
 
-  const documents = await prisma.userDocument.findMany({
-    where: {
-      user: { cityId: { in: cityIds } },
-      ...(status ? { status: String(status) } : {}),
-      ...(type ? { type: String(type) } : {}),
-    },
-    include: {
-      user: { select: { id: true, nome: true, email: true, role: true, cityId: true, city: true } },
-      reviewedBy: { select: { id: true, nome: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+    const cityIds = req.allowedCities ?? [req.user.cityId];
+    const { status, type } = req.query;
 
-  return res.json(documents);
+    const validDocumentStatuses = Object.values(DocumentStatus);
+    const parsedStatus =
+        status && validDocumentStatuses.includes(String(status) as DocumentStatus)
+            ? (String(status) as DocumentStatus)
+            : undefined;
+
+    const validDocumentTypes = Object.values(DocumentType);
+    const parsedType =
+        type && validDocumentTypes.includes(String(type) as DocumentType)
+            ? (String(type) as DocumentType)
+            : undefined;
+
+    const documents = await prisma.userDocument.findMany({
+        where: {
+            user: { cityId: { in: cityIds } },
+            ...(parsedStatus ? { status: parsedStatus } : {}),
+            ...(parsedType ? { type: parsedType } : {}),
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    nome: true,
+                    email: true,
+                    role: true,
+                    cityId: true,
+                    city: true,
+                },
+            },
+            reviewedBy: {
+                select: {
+                    id: true,
+                    nome: true,
+                    email: true,
+                },
+            },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+    });
+
+    return res.json(documents);
 }
 
 export async function reviewDocument(req, res) {
-  if (!ensureAdmin(req, res)) return;
-  const id = Number(req.params.id);
-  const { status, reason } = req.body;
-  const cityIds = req.allowedCities ?? [req.user.cityId];
+    if (!ensureAdmin(req, res)) return;
 
-  if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
-  if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "Status inválido" });
+    const id = Number(req.params.id);
+    const { status, reason } = req.body;
+    const cityIds = req.allowedCities ?? [req.user.cityId];
 
-  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
-  if (!document || !document.user.cityId || !cityIds.includes(document.user.cityId)) return res.status(404).json({ error: "Documento não encontrado" });
+    if (!Number.isFinite(id)) {
+        return res.status(400).json({ error: "ID inválido" });
+    }
 
-  const updated = await prisma.userDocument.update({
-    where: { id },
-    data: {
-      status,
-      moderationReason: status === "rejected" ? reason || "Documento rejeitado pela administração" : null,
-      reviewedById: req.user.id,
-      reviewedAt: new Date(),
-    },
-    include: {
-      user: { select: { id: true, nome: true, email: true, role: true, cityId: true, city: true } },
-      reviewedBy: { select: { id: true, nome: true, email: true } },
-    },
-  });
+    if (!["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Status inválido" });
+    }
 
-  if (status === "approved" && document.type === "profile_photo") {
-    await prisma.user.update({ where: { id: document.userId }, data: { photo: document.fileData ? `db:${document.id}` : document.filePath } });
-  }
+    const document = await prisma.userDocument.findUnique({
+        where: { id },
+        include: { user: true },
+    });
 
-  await notifyUser(
-    document.userId,
-    status === "approved" ? "Documento aprovado" : "Documento rejeitado",
-    status === "approved" ? `Seu ${documentLabel(document.type)} foi aprovado pela administração.` : `Seu ${documentLabel(document.type)} foi rejeitado. ${reason ? `Motivo: ${reason}` : "Envie um novo arquivo para análise."}`,
-    status === "approved" ? "success" : "warning",
-    { documentId: document.id, documentType: document.type, status },
-  );
+    if (
+        !document ||
+        !document.user.cityId ||
+        !cityIds.includes(document.user.cityId)
+    ) {
+        return res.status(404).json({ error: "Documento não encontrado" });
+    }
 
-  await createAuditLog({
-    userId: req.user.id,
-    cityId: req.user.cityId,
-    action: status === "approved" ? "approve" : "reject",
-    entity: "UserDocument",
-    entityId: id,
-    description: status === "approved" ? "Documento aprovado" : "Documento rejeitado",
-    metadata: { documentId: id, documentType: document.type, reason },
-    ...getRequestAuditData(req, res),
-  });
+    const updated = await prisma.userDocument.update({
+        where: { id },
+        data: {
+            status,
+            moderationReason:
+                status === "rejected"
+                    ? reason || "Documento rejeitado pela administração"
+                    : null,
+            reviewedById: req.user.id,
+            reviewedAt: new Date(),
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    nome: true,
+                    email: true,
+                    role: true,
+                    cityId: true,
+                    city: true,
+                },
+            },
+            reviewedBy: {
+                select: {
+                    id: true,
+                    nome: true,
+                    email: true,
+                },
+            },
+        },
+    });
 
-  return res.json(updated);
+    if (status === "approved" && document.type === "profile_photo") {
+        await prisma.user.update({
+            where: { id: document.userId },
+            data: {
+                photo: document.fileData ? `db:${document.id}` : document.filePath,
+            },
+        });
+    }
+
+    await notifyUser(
+        document.userId,
+        status === "approved" ? "Documento aprovado" : "Documento rejeitado",
+        status === "approved"
+            ? `Seu ${documentLabel(document.type)} foi aprovado pela administração.`
+            : `Seu ${documentLabel(document.type)} foi rejeitado. ${reason ? `Motivo: ${reason}` : "Envie um novo arquivo para análise."
+            }`,
+        status === "approved" ? NotificationType.success : NotificationType.warning,
+        {
+            documentId: document.id,
+            documentType: document.type,
+            status,
+        },
+    );
+
+    await createAuditLog({
+        userId: req.user.id,
+        cityId: req.user.cityId,
+        action: status === "approved" ? "approve" : "reject",
+        entity: "UserDocument",
+        entityId: id,
+        description: status === "approved" ? "Documento aprovado" : "Documento rejeitado",
+        metadata: {
+            documentId: id,
+            documentType: document.type,
+            reason,
+        },
+        ...getRequestAuditData(req, res),
+    });
+
+    return res.json(updated);
 }
 
 export async function downloadDocument(req, res) {
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
+    const id = Number(req.params.id);
 
-  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
-  if (!document) return res.status(404).json({ error: "Documento não encontrado" });
-  if (!canAccessDocument(req, document)) return res.status(403).json({ error: "Acesso negado" });
+    if (!Number.isFinite(id)) {
+        return res.status(400).json({ error: "ID inválido" });
+    }
 
-  return sendDocumentFile(res, document, false);
+    const document = await prisma.userDocument.findUnique({
+        where: { id },
+        include: { user: true },
+    });
+
+    if (!document) {
+        return res.status(404).json({ error: "Documento não encontrado" });
+    }
+
+    if (!canAccessDocument(req, document)) {
+        return res.status(403).json({ error: "Acesso negado" });
+    }
+
+    return sendDocumentFile(res, document, false);
 }
 
 export async function viewDocument(req, res) {
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id)) return res.status(400).json({ error: "ID inválido" });
+    const id = Number(req.params.id);
 
-  const document = await prisma.userDocument.findUnique({ where: { id }, include: { user: true } });
-  if (!document) return res.status(404).json({ error: "Documento não encontrado" });
-  if (!canAccessDocument(req, document)) return res.status(403).json({ error: "Acesso negado" });
+    if (!Number.isFinite(id)) {
+        return res.status(400).json({ error: "ID inválido" });
+    }
 
-  return sendDocumentFile(res, document, true);
+    const document = await prisma.userDocument.findUnique({
+        where: { id },
+        include: { user: true },
+    });
+
+    if (!document) {
+        return res.status(404).json({ error: "Documento não encontrado" });
+    }
+
+    if (!canAccessDocument(req, document)) {
+        return res.status(403).json({ error: "Acesso negado" });
+    }
+
+    return sendDocumentFile(res, document, true);
 }

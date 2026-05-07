@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { createAuditLog, getRequestAuditData } from "../utils/audit";
+import type { Prisma } from "@prisma/client";
 
 function maskCpf(cpf) {
   if (!cpf) return null;
@@ -44,7 +45,9 @@ function parseOptionalNumber(value) {
 function getPickupPointWhere(req) {
   const cityIds = req.allowedCities ?? [req.user.cityId];
   const { type, universityId, active } = req.query;
-  const where = { cityId: { in: cityIds } };
+  const where: Prisma.PickupPointWhereInput = {
+    cityId: { in: cityIds },
+  };
 
   if (type) where.type = normalizeTripType(String(type));
   if (universityId) where.universityId = Number(universityId);

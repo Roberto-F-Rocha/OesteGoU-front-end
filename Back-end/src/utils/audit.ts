@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { Prisma } from "@prisma/client";
 
 interface AuditParams {
   userId?: number | null;
@@ -25,7 +26,7 @@ export async function createAuditLog(params: AuditParams) {
         entity: params.entity,
         entityId: params.entityId ? String(params.entityId) : undefined,
         description: params.description,
-        metadata: params.metadata,
+        metadata: (params.metadata ?? {}) as Prisma.InputJsonObject,
         ipAddress: params.ipAddress ?? undefined,
         userAgent: params.userAgent ?? undefined,
         path: params.path ?? undefined,
