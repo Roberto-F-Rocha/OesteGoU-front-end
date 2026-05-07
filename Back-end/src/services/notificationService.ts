@@ -1,4 +1,5 @@
 import { NotificationType, Prisma } from "@prisma/client";
+import { emitToUser } from "../lib/socket";
 import { prisma } from "../lib/prisma";
 
 interface CreateNotificationInput {
@@ -18,7 +19,7 @@ export async function createNotification({
   link,
   metadata = {},
 }: CreateNotificationInput) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       userId,
       title,
@@ -28,18 +29,23 @@ export async function createNotification({
       metadata: metadata as Prisma.InputJsonObject,
     },
   });
+
+  emitToUser(userId, "notification:new", notification);
+
+  return notification;
 }
 
 export async function notifyUsers(
   userIds: number[],
   input: Omit<CreateNotificationInput, "userId">,
 ) {
-  if (!userIds.length) return;
+  if (!userIds.length) return 0;
 
+  const uniqueUserIds = Array.from(new Set(userIds));
   const metadata = input.metadata ?? {};
 
   await prisma.notification.createMany({
-    data: userIds.map((userId) => ({
+    data: uniqueUserIds.map((userId) => ({
       userId,
       title: input.title,
       message: input.message,
@@ -48,4 +54,17 @@ export async function notifyUsers(
       metadata: metadata as Prisma.InputJsonObject,
     })),
   });
+
+  uniqueUserIds.forEach((userId) => {
+    emitToUser(userId, "notification:new", {
+      title: input.title,
+      message: input.message,
+      type: input.type ?? NotificationType.info,
+      link: input.link,
+      metadata,
+      createdAt: new Date().toISOString(),
+    });
+  });
+
+  return uniqueUserIds.length;
 }
