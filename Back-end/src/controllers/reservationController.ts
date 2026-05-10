@@ -82,12 +82,47 @@ async function notifyDriverAttendanceChange(reservation, action: "confirmed" | "
   const route = reservation.route;
   const driverId = route?.driverId;
   if (!driverId) return;
+
   const isConfirmed = action === "confirmed";
-  const studentName = reservation.user?.nome ?? "Aluno";
+  const student = reservation.user;
   const schedule = reservation.schedule;
-  const message = `${studentName} ${isConfirmed ? "confirmou presença" : "informou que não vai"} na ${tripLabel(schedule?.type)} de ${reservation.dayOfWeek ?? "dia não informado"} às ${schedule?.time ?? "--:--"}.`;
-  await notifyUser(driverId, isConfirmed ? "Presença confirmada" : "Ausência informada", message, isConfirmed ? NotificationType.success : NotificationType.warning, { source: "student_attendance", senderRole: "student", senderId: reservation.userId, reservationId: reservation.id, routeId: reservation.routeId, studentId: reservation.userId, status: action, dayOfWeek: reservation.dayOfWeek, scheduleTime: schedule?.time, tripType: schedule?.type });
-  emitToUser(driverId, "driver:attendance-changed", { reservationId: reservation.id, routeId: reservation.routeId, studentId: reservation.userId, studentName, status: action, dayOfWeek: reservation.dayOfWeek, scheduleTime: schedule?.time, tripType: schedule?.type });
+  const pickupPoint = reservation.pickupPoint?.name ?? "ponto não informado";
+  const routeName = route?.name ?? "rota não informada";
+  const universityName = schedule?.university?.name ?? "universidade não informada";
+  const studentName = student?.nome ?? "Aluno";
+  const studentPhone = student?.phone ? ` · Tel: ${student.phone}` : "";
+  const studentInstitution = student?.institution ? ` · ${student.institution}` : "";
+  const actionText = isConfirmed ? "CONFIRMOU presença" : "marcou NÃO VOU";
+
+  const message = `${studentName}${studentInstitution}${studentPhone} ${actionText} na ${tripLabel(schedule?.type)} de ${reservation.dayOfWeek ?? "dia não informado"} às ${schedule?.time ?? "--:--"}. Rota: ${routeName}. Ponto: ${pickupPoint}. Universidade: ${universityName}.`;
+
+  await notifyUser(
+    driverId,
+    isConfirmed ? "Aluno confirmou presença" : "Aluno marcou não vou",
+    message,
+    isConfirmed ? NotificationType.success : NotificationType.warning,
+    {
+      source: "student_attendance_driver",
+      senderRole: "student",
+      senderId: reservation.userId,
+      reservationId: reservation.id,
+      routeId: reservation.routeId,
+      studentId: reservation.userId,
+      studentName,
+      studentPhone: student?.phone ?? null,
+      studentInstitution: student?.institution ?? null,
+      pickupPoint,
+      routeName,
+      universityName,
+      status: action,
+      actionText,
+      dayOfWeek: reservation.dayOfWeek,
+      scheduleTime: schedule?.time,
+      tripType: schedule?.type,
+    },
+  );
+
+  emitToUser(driverId, "driver:attendance-changed", { reservationId: reservation.id, routeId: reservation.routeId, studentId: reservation.userId, studentName, status: action, actionText, pickupPoint, routeName, dayOfWeek: reservation.dayOfWeek, scheduleTime: schedule?.time, tripType: schedule?.type });
 }
 
 async function notifyStudentAttendanceChange(reservation, action: "confirmed" | "canceled") {
