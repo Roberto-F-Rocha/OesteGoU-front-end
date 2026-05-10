@@ -251,7 +251,7 @@ export async function confirmReservation(req, res) {
   if (updated.routeId) {
     await notifyDriverAttendanceChange(updated, "confirmed");
     await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "confirmed");
-}
+  }
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "update", entity: "Reservation", entityId: updated.id, description: "Reserva confirmada", ...getRequestAuditData(req, res) });
   return res.json(updated);
 }
@@ -267,7 +267,11 @@ export async function cancelReservation(req, res) {
   if (reservation.status === "canceled") return res.json(reservation);
   const updated = await prisma.reservation.update({ where: { id }, data: { status: "canceled" }, include: { user: true, schedule: { include: { university: true } }, route: { include: { city: true, vehicle: true, driver: true } }, pickupPoint: true } });
   await notifyStudentAttendanceChange(updated, "canceled");
-  if (updated.routeId) { await notifyDriverAttendanceChange(updated, "canceled"); emitToUser(reservation.userId, "reservation:canceled", updated); await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "canceled"); }
+
+  if (updated.routeId) {
+    await notifyDriverAttendanceChange(updated, "canceled");
+    await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "canceled");
+  }
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "cancel", entity: "Reservation", entityId: updated.id, description: "Reserva marcada como não vou", ...getRequestAuditData(req, res) });
   return res.json(updated);
 }
