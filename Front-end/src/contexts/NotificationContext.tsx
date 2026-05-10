@@ -31,70 +31,44 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
-
-type BrowserAudioContext = AudioContext & { resume: () => Promise<void> };
-let sharedAudioContext: BrowserAudioContext | null = null;
+const NOTIFICATION_SOUND_SRC = "/sounds/notification-horn.mp3";
 let audioUnlocked = false;
 
-function getAudioContext() {
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-  if (!AudioContextClass) return null;
-  if (!sharedAudioContext || sharedAudioContext.state === "closed") sharedAudioContext = new AudioContextClass();
-  return sharedAudioContext;
+function createHornAudio() {
+  const audio = new Audio(NOTIFICATION_SOUND_SRC);
+  audio.preload = "auto";
+  audio.volume = 0.75;
+  return audio;
 }
 
-async function unlockAudio() {
+async function unlockAudio(audioRef?: HTMLAudioElement | null) {
   try {
-    const ctx = getAudioContext();
-    if (!ctx) return false;
-    if (ctx.state === "suspended") await ctx.resume();
-    audioUnlocked = ctx.state === "running";
-    return audioUnlocked;
+    const audio = audioRef ?? createHornAudio();
+    audio.muted = true;
+    audio.currentTime = 0;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
+    audioUnlocked = true;
+    return true;
   } catch {
     audioUnlocked = false;
     return false;
   }
 }
 
-async function playHorn() {
+async function playHorn(audioRef?: HTMLAudioElement | null) {
   try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") await ctx.resume();
-    if (ctx.state !== "running") return;
-
-    const now = ctx.currentTime + 0.03;
-
-    function honk(start: number, duration: number, baseFrequency: number) {
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-
-      oscillator.type = "sawtooth";
-      oscillator.frequency.setValueAtTime(baseFrequency, start);
-      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 0.88, start + duration * 0.35);
-      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 1.04, start + duration * 0.7);
-      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 0.92, start + duration);
-
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(950, start);
-      filter.Q.setValueAtTime(4, start);
-
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.5, start + 0.035);
-      gain.gain.exponentialRampToValueAtTime(0.18, start + duration * 0.6);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-
-      oscillator.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-      oscillator.start(start);
-      oscillator.stop(start + duration + 0.03);
-    }
-
-    honk(now, 0.32, 340);
-    honk(now + 0.42, 0.38, 300);
-  } catch {}
+    const audio = audioRef ?? createHornAudio();
+    audio.muted = false;
+    audio.volume = 0.75;
+    audio.currentTime = 0;
+    await audio.play();
+    audioUnlocked = true;
+  } catch {
+    audioUnlocked = false;
+  }
 }
 
 function isExternalStudentNotification(notification: AppNotification, user?: any) {
@@ -117,6 +91,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("oestegou_notification_sound") === "enabled");
   const pendingSoundRef = useRef(false);
+  const hornAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    hornAudioRef.current = createHornAudio();
+    return () => {
+      if (hornAudioRef.current) {
+        hornAudioRef.current.pause();
+        hornAudioRef.current.src = "";
+        hornAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -137,11 +123,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => { refreshNotifications(); }, [refreshNotifications]);
 
   async function enableNotificationSound() {
-    const unlocked = await unlockAudio();
+    const unlocked = await unlockAudio(hornAudioRef.current);
     if (unlocked) {
       localStorage.setItem("oestegou_notification_sound", "enabled");
       setSoundEnabled(true);
-      await playHorn();
+      await playHorn(hornAudioRef.current);
       toast.success("Som ativado", { description: "Você ouvirá a buzina nas notificações externas." });
     } else {
       toast.error("Som bloqueado", { description: "O navegador bloqueou o áudio. Confira as permissões de som do site." });
@@ -165,21 +151,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }
 
   async function testNotificationSound() {
-    const unlocked = await unlockAudio();
+    const unlocked = audioUnlocked || await unlockAudio(hornAudioRef.current);
     if (unlocked) {
       localStorage.setItem("oestegou_notification_sound", "enabled");
       setSoundEnabled(true);
-      await playHorn();
+      await playHorn(hornAudioRef.current);
+    } else {
+      toast.error("Som bloqueado", { description: "Clique em ativar buzina e confira a permissão de áudio do navegador." });
     }
   }
 
   useEffect(() => {
     if (!isAuthenticated || !soundEnabled) return;
     async function handleFirstInteraction() {
-      const unlocked = await unlockAudio();
+      const unlocked = await unlockAudio(hornAudioRef.current);
       if (unlocked && pendingSoundRef.current) {
         pendingSoundRef.current = false;
-        await playHorn();
+        await playHorn(hornAudioRef.current);
       }
     }
     window.addEventListener("click", handleFirstInteraction);
@@ -203,8 +191,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) return;
     async function handleNewNotification(notification: AppNotification) {
       if (soundEnabled && isExternalStudentNotification(notification, user)) {
-        const unlocked = await unlockAudio();
-        if (unlocked) await playHorn();
+        if (audioUnlocked) await playHorn(hornAudioRef.current);
         else pendingSoundRef.current = true;
       }
       setNotifications((current) => {
