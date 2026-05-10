@@ -15,6 +15,16 @@ function getPhotoUrl(photo?: string | null) {
   return photo;
 }
 
+function normalizeCity(city?: { id: number; name: string; state: string } | null) {
+  if (!city) return null;
+
+  return {
+    id: city.id,
+    name: city.name,
+    state: city.state,
+  };
+}
+
 export async function login(req, res) {
   const { email, senha } = req.body;
 
@@ -24,6 +34,7 @@ export async function login(req, res) {
 
   const user = await prisma.user.findUnique({
     where: { email: String(email).toLowerCase() },
+    include: { city: true },
   });
 
   if (!user || !(await bcrypt.compare(senha, user.senha))) {
@@ -61,6 +72,7 @@ export async function login(req, res) {
       role: user.role,
       status: user.status,
       cityId: user.cityId,
+      city: normalizeCity(user.city),
       photo: getPhotoUrl(user.photo),
     },
   });
@@ -95,7 +107,7 @@ export async function me(req, res) {
     role: user.role,
     status: user.status,
     cityId: user.cityId,
-    city: user.city,
+    city: normalizeCity(user.city),
     photo: getPhotoUrl(user.photo),
   });
 }
