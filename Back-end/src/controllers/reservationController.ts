@@ -247,7 +247,11 @@ export async function confirmReservation(req, res) {
   if (activeExisting) return res.status(409).json({ error: "Já existe uma reserva confirmada para este horário" });
   const updated = await prisma.reservation.update({ where: { id }, data: { status: "confirmed" }, include: { user: true, schedule: { include: { university: true } }, route: { include: { city: true, vehicle: true, driver: true } }, pickupPoint: true } });
   await notifyStudentAttendanceChange(updated, "confirmed");
-  if (updated.routeId) { await notifyDriverAttendanceChange(updated, "confirmed"); emitToUser(reservation.userId, "reservation:created", updated); await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "confirmed"); }
+
+  if (updated.routeId) {
+    await notifyDriverAttendanceChange(updated, "confirmed");
+    await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "confirmed");
+}
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "update", entity: "Reservation", entityId: updated.id, description: "Reserva confirmada", ...getRequestAuditData(req, res) });
   return res.json(updated);
 }
