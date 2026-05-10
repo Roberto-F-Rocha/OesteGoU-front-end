@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, CheckCheck, Loader2, X } from "lucide-react";
+import { Bell, CheckCheck, Loader2, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
@@ -16,7 +16,7 @@ function notificationHome(role?: string) {
 }
 
 function normalizeNotificationLink(link: string | null | undefined, role?: string) {
-  if (!link) return notificationHome(role);
+  if (!link || link === "/") return notificationHome(role);
   if (link.startsWith("/driver/routes") || link.startsWith("/driver")) return "/motorista";
   if (link.startsWith("/student")) return link.replace("/student", "/aluno");
   if (link === "/notifications" || link === "/notificacoes") return notificationHome(role);
@@ -26,7 +26,7 @@ function normalizeNotificationLink(link: string | null | undefined, role?: strin
 export default function NotificationBell() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound, testNotificationSound } = useNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -51,19 +51,21 @@ export default function NotificationBell() {
   useLiveRefresh(refreshNotifications, { intervalMs: 20000 });
 
   async function handleMarkAllAsRead() {
-    try {
-      await markAllAsRead();
-    } catch {
-      toast({ title: "Erro", description: "Não foi possível marcar todas como lidas.", variant: "destructive" });
-    }
+    try { await markAllAsRead(); } catch { toast({ title: "Erro", description: "Não foi possível marcar todas como lidas.", variant: "destructive" }); }
+  }
+
+  async function handleEnableSound(event: React.MouseEvent) {
+    event.stopPropagation();
+    await enableNotificationSound();
+  }
+
+  async function handleTestSound(event: React.MouseEvent) {
+    event.stopPropagation();
+    await testNotificationSound();
   }
 
   async function openNotification(notification: any) {
-    try {
-      if (!notification.readAt && notification.id) await markAsRead(notification.id);
-    } catch {
-      toast({ title: "Erro", description: "Não foi possível marcar como lida.", variant: "destructive" });
-    }
+    try { if (!notification.readAt && notification.id) await markAsRead(notification.id); } catch { toast({ title: "Erro", description: "Não foi possível marcar como lida.", variant: "destructive" }); }
     setOpen(false);
     navigate(normalizeNotificationLink(notification.link, user?.role));
   }
@@ -96,21 +98,17 @@ export default function NotificationBell() {
                   <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="rounded-full h-9 w-9" aria-label="Fechar notificações"><X className="w-4 h-4" /></Button>
                 </div>
               </div>
+              <div className="p-3 border-b border-border bg-muted/30">
+                {soundEnabled ? (
+                  <Button type="button" variant="outline" size="sm" onClick={handleTestSound} className="w-full justify-center rounded-xl"><Volume2 className="w-4 h-4 mr-2" /> Som ativado · testar bipe</Button>
+                ) : (
+                  <Button type="button" size="sm" onClick={handleEnableSound} className="w-full justify-center rounded-xl"><VolumeX className="w-4 h-4 mr-2" /> Ativar som das notificações</Button>
+                )}
+              </div>
               <div className="max-h-[70vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:max-h-96">
                 {loading ? <div className="p-8 text-center text-sm flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Carregando...</div> : notifications.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação ainda.</div> : notifications.slice(0, 8).map((notification) => {
                   const unread = !notification.readAt;
-                  return (
-                    <button key={notification.id} type="button" onClick={() => openNotification(notification)} className={cn("w-full text-left px-4 py-3 border-b border-border last:border-b-0 active:bg-muted/70 hover:bg-muted/50 transition-colors", unread && "bg-primary/[0.04]")}> 
-                      <div className="flex items-start gap-3">
-                        <div className={cn("mt-1 h-2.5 w-2.5 rounded-full shrink-0", unread ? "bg-primary" : "bg-muted")} />
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm text-foreground leading-snug">{notification.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p>
-                          <p className="text-[11px] text-muted-foreground mt-1">{notification.createdAt ? new Date(notification.createdAt).toLocaleString("pt-BR") : ""}</p>
-                        </div>
-                      </div>
-                    </button>
-                  );
+                  return <button key={notification.id} type="button" onClick={() => openNotification(notification)} className={cn("w-full text-left px-4 py-3 border-b border-border last:border-b-0 active:bg-muted/70 hover:bg-muted/50 transition-colors", unread && "bg-primary/[0.04]")}><div className="flex items-start gap-3"><div className={cn("mt-1 h-2.5 w-2.5 rounded-full shrink-0", unread ? "bg-primary" : "bg-muted")} /><div className="min-w-0 flex-1"><p className="font-medium text-sm text-foreground leading-snug">{notification.title}</p><p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p><p className="text-[11px] text-muted-foreground mt-1">{notification.createdAt ? new Date(notification.createdAt).toLocaleString("pt-BR") : ""}</p></div></div></button>;
                 })}
               </div>
             </motion.div>
