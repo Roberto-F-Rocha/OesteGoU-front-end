@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -27,33 +27,58 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
-function playBipeBipe() {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
+type BrowserAudioContext = AudioContext & { resume: () => Promise<void> };
 
-    const ctx = new AudioContextClass();
-    const now = ctx.currentTime;
+let sharedAudioContext: BrowserAudioContext | null = null;
+let audioUnlocked = false;
+
+function getAudioContext() {
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    sharedAudioContext = new AudioContextClass();
+  }
+  return sharedAudioContext;
+}
+
+async function unlockAudio() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") await ctx.resume();
+    audioUnlocked = true;
+  } catch {
+    audioUnlocked = false;
+  }
+}
+
+async function playBipeBipe() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") await ctx.resume();
+    if (ctx.state !== "running") return;
+
+    const now = ctx.currentTime + 0.02;
 
     function beep(start: number, frequency: number) {
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
-      oscillator.type = "sine";
+      oscillator.type = "square";
       oscillator.frequency.setValueAtTime(frequency, start);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start(start);
-      oscillator.stop(start + 0.17);
+      oscillator.stop(start + 0.18);
     }
 
-    beep(now, 740);
-    beep(now + 0.22, 920);
-    setTimeout(() => ctx.close().catch(() => undefined), 650);
+    beep(now, 660);
+    beep(now + 0.24, 880);
   } catch {
-    // Browsers may block audio before user interaction. In this case, just ignore it.
+    // O navegador pode bloquear áudio até o usuário interagir com a página.
   }
 }
 
@@ -78,6 +103,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const pendingSoundRef = useRef(false);
 
   const refreshNotifications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -100,6 +126,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     refreshNotifications();
   }, [refreshNotifications]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    async function handleFirstInteraction() {
+      await unlockAudio();
+      if (pendingSoundRef.current && audioUnlocked) {
+        pendingSoundRef.current = false;
+        await playBipeBipe();
+      }
+    }
+
+    window.addEventListener("pointerdown", handleFirstInteraction, { passive: true });
+    window.addEventListener("keydown", handleFirstInteraction);
+    window.addEventListener("touchstart", handleFirstInteraction, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
+  }, [isAuthenticated]);
+
   function resolveRoute(notification: AppNotification) {
     if (notification.link) return notification.link;
 
@@ -117,8 +165,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    function handleNewNotification(notification: AppNotification) {
-      if (isExternalStudentNotification(notification, user)) playBipeBipe();
+    async function handleNewNotification(notification: AppNotification) {
+      if (isExternalStudentNotification(notification, user)) {
+        if (audioUnlocked) {
+          await playBipeBipe();
+        } else {
+          pendingSoundRef.current = true;
+          await unlockAudio();
+          if (audioUnlocked) {
+            pendingSoundRef.current = false;
+            await playBipeBipe();
+          }
+        }
+      }
 
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
