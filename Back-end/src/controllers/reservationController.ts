@@ -120,6 +120,20 @@ async function notifyDriverAttendanceChange(reservation, action: "confirmed" | "
   emitToUser(driverId, "driver:attendance-changed", { reservationId: reservation.id, routeId: reservation.routeId, studentId: reservation.userId, studentName, status: action, dayOfWeek: reservation.dayOfWeek, scheduleTime: schedule?.time, tripType: schedule?.type });
 }
 
+async function notifyStudentAttendanceChange(reservation, action: "confirmed" | "canceled") {
+  const isConfirmed = action === "confirmed";
+  const schedule = reservation.schedule;
+  await notifyUser(
+    reservation.userId,
+    isConfirmed ? "Presença confirmada" : "Horário cancelado",
+    isConfirmed
+      ? `${reservation.dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(schedule?.type)} às ${schedule?.time ?? "--:--"} foi confirmada novamente.`
+      : `${reservation.dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(schedule?.type)} às ${schedule?.time ?? "--:--"} foi removida da sua semana.`,
+    isConfirmed ? NotificationType.success : NotificationType.warning,
+    { source: "student_attendance_self", reservationId: reservation.id, routeId: reservation.routeId, scheduleId: reservation.scheduleId, dayOfWeek: reservation.dayOfWeek, scheduleTime: schedule?.time, tripType: schedule?.type, status: action },
+  );
+}
+
 async function notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity }) {
   const admins = await prisma.user.findMany({ where: { role: "admin", cityId: route.cityId, status: "active" }, select: { id: true } });
   const existingPassengers = await prisma.reservation.findMany({ where: { routeId: route.id, status: "confirmed" }, select: { userId: true } });
@@ -185,6 +199,7 @@ export async function createReservation(req, res) {
   const currentCount = (route?.reservations.length ?? 0) + 1;
   const isOvercapacity = Boolean(capacity && currentCount > capacity);
   const reachedCapacity = Boolean(capacity && currentCount === capacity);
+  await notifyUser(user.id, isOvercapacity ? "Horário confirmado com ônibus superlotado" : "Horário confirmado", `${dayOfWeek ?? "Dia selecionado"}: sua ${tripLabel(reservation.schedule.type)} para ${reservation.schedule.university?.name ?? "universidade"} às ${reservation.schedule.time} foi confirmada.${isOvercapacity ? ` Atenção: o ônibus está acima da capacidade (${currentCount}/${capacity}).` : ""}`, isOvercapacity ? NotificationType.warning : NotificationType.success, { source: "reservation_created", reservationId: reservation.id, scheduleId, routeId, pickupPointId, dayOfWeek, capacity, currentCount, overcapacity: isOvercapacity });
   if (route) { emitToUser(user.id, "reservation:created", reservation); await emitOccupancy(route.id, reservation.id, scheduleId, dayOfWeek, "confirmed"); }
   if (route && capacity && (reachedCapacity || isOvercapacity)) await notifyRouteOvercapacity({ route, schedule, reservation, dayOfWeek, currentCount, capacity });
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "create", entity: "Reservation", entityId: reservation.id, description: isOvercapacity ? "Aluno criou reserva acima da capacidade do ônibus" : "Aluno criou uma reserva de transporte", metadata: { scheduleId, routeId, pickupPointId, capacity, currentCount, overcapacity: isOvercapacity }, ...getRequestAuditData(req, res) });
@@ -210,6 +225,7 @@ export async function createRoundTripReservation(req, res) {
       const returnReservation = await tx.reservation.create({ data: { userId: user.id, scheduleId: returning.scheduleId, routeId: returning.routeId, pickupPointId: returningData.pickupPointId, dayOfWeek, status: "confirmed" }, include: { schedule: { include: { university: true } }, route: { include: { city: true, vehicle: true, driver: true } }, pickupPoint: true } });
       return { going: goingReservation, returning: returnReservation };
     });
+    await notifyUser(user.id, "Horário confirmado", `${dayOfWeek}: sua ida e volta foram confirmadas com sucesso.`, NotificationType.success, { source: "roundtrip_created", dayOfWeek, shift, goingReservationId: result.going.id, returningReservationId: result.returning.id });
     if (result.going.routeId) await emitOccupancy(result.going.routeId, result.going.id, result.going.scheduleId, dayOfWeek, "confirmed");
     if (result.returning.routeId) await emitOccupancy(result.returning.routeId, result.returning.id, result.returning.scheduleId, dayOfWeek, "confirmed");
     await createAuditLog({ userId: user.id, cityId: user.cityId, action: "create", entity: "Reservation", entityId: `${result.going.id},${result.returning.id}`, description: "Aluno criou reserva de ida e volta", metadata: { dayOfWeek, shift, going, returning }, ...getRequestAuditData(req, res) });
@@ -234,6 +250,7 @@ export async function confirmReservation(req, res) {
   const activeExisting = await prisma.reservation.findFirst({ where: { id: { not: id }, userId: reservation.userId, scheduleId: reservation.scheduleId, dayOfWeek: reservation.dayOfWeek, status: "confirmed" } });
   if (activeExisting) return res.status(409).json({ error: "Já existe uma reserva confirmada para este horário" });
   const updated = await prisma.reservation.update({ where: { id }, data: { status: "confirmed" }, include: { user: true, schedule: { include: { university: true } }, route: { include: { city: true, vehicle: true, driver: true } }, pickupPoint: true } });
+  await notifyStudentAttendanceChange(updated, "confirmed");
   if (updated.routeId) { await notifyDriverAttendanceChange(updated, "confirmed"); emitToUser(reservation.userId, "reservation:created", updated); await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "confirmed"); }
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "update", entity: "Reservation", entityId: updated.id, description: "Reserva confirmada novamente", ...getRequestAuditData(req, res) });
   return res.json(updated);
@@ -249,6 +266,7 @@ export async function cancelReservation(req, res) {
   if (reservation.userId !== user.id && user.role !== "admin") return res.status(403).json({ error: "Você não tem permissão para cancelar esta reserva" });
   if (reservation.status === "canceled") return res.json(reservation);
   const updated = await prisma.reservation.update({ where: { id }, data: { status: "canceled" }, include: { user: true, schedule: { include: { university: true } }, route: { include: { city: true, vehicle: true, driver: true } }, pickupPoint: true } });
+  await notifyStudentAttendanceChange(updated, "canceled");
   if (updated.routeId) { await notifyDriverAttendanceChange(updated, "canceled"); emitToUser(reservation.userId, "reservation:canceled", updated); await emitOccupancy(updated.routeId, updated.id, updated.scheduleId, updated.dayOfWeek, "canceled"); }
   await createAuditLog({ userId: user.id, cityId: user.cityId, action: "cancel", entity: "Reservation", entityId: updated.id, description: "Reserva cancelada", ...getRequestAuditData(req, res) });
   return res.json(updated);
