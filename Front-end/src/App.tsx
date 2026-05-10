@@ -45,7 +45,7 @@ const App = () => (
         <NotificationProvider>
           <TooltipProvider>
             <Toaster />
-            <Sonner />
+            <Sonner position="bottom-right" richColors expand={false} closeButton offset={20} />
             <AppRoutes />
           </TooltipProvider>
         </NotificationProvider>
