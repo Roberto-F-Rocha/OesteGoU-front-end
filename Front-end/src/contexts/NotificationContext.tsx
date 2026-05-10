@@ -28,16 +28,13 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
 type BrowserAudioContext = AudioContext & { resume: () => Promise<void> };
-
 let sharedAudioContext: BrowserAudioContext | null = null;
 let audioUnlocked = false;
 
 function getAudioContext() {
   const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
   if (!AudioContextClass) return null;
-  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-    sharedAudioContext = new AudioContextClass();
-  }
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") sharedAudioContext = new AudioContextClass();
   return sharedAudioContext;
 }
 
@@ -46,7 +43,7 @@ async function unlockAudio() {
     const ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") await ctx.resume();
-    audioUnlocked = true;
+    audioUnlocked = ctx.state === "running";
   } catch {
     audioUnlocked = false;
   }
@@ -58,42 +55,34 @@ async function playBipeBipe() {
     if (!ctx) return;
     if (ctx.state === "suspended") await ctx.resume();
     if (ctx.state !== "running") return;
-
     const now = ctx.currentTime + 0.02;
-
     function beep(start: number, frequency: number) {
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
       oscillator.type = "square";
       oscillator.frequency.setValueAtTime(frequency, start);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.35, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start(start);
-      oscillator.stop(start + 0.18);
+      oscillator.stop(start + 0.22);
     }
-
     beep(now, 660);
-    beep(now + 0.24, 880);
-  } catch {
-    // O navegador pode bloquear áudio até o usuário interagir com a página.
-  }
+    beep(now + 0.28, 880);
+  } catch {}
 }
 
 function isExternalStudentNotification(notification: AppNotification, user?: any) {
   if (user?.role !== "student") return false;
-
   const metadata = notification.metadata ?? {};
   const source = String(metadata.source ?? "");
   const senderRole = String(metadata.senderRole ?? "");
   const senderId = metadata.senderId ? Number(metadata.senderId) : null;
-
   if (source === "student_attendance_self" || source === "reservation_created" || source === "roundtrip_created") return false;
   if (senderId && user?.id && senderId === Number(user.id)) return false;
   if (senderRole === "admin" || senderRole === "driver") return true;
-
   return source.startsWith("driver_") || source.startsWith("admin_") || source === "driver_pending_students";
 }
 
@@ -111,7 +100,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setUnreadCount(0);
       return;
     }
-
     try {
       setLoading(true);
       const { data } = await api.get("/notifications/my");
@@ -122,103 +110,64 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    refreshNotifications();
-  }, [refreshNotifications]);
+  useEffect(() => { refreshNotifications(); }, [refreshNotifications]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-
     async function handleFirstInteraction() {
       await unlockAudio();
-      if (pendingSoundRef.current && audioUnlocked) {
+      if (pendingSoundRef.current) {
         pendingSoundRef.current = false;
         await playBipeBipe();
       }
     }
-
-    window.addEventListener("pointerdown", handleFirstInteraction, { passive: true });
+    window.addEventListener("click", handleFirstInteraction);
+    window.addEventListener("pointerup", handleFirstInteraction);
     window.addEventListener("keydown", handleFirstInteraction);
-    window.addEventListener("touchstart", handleFirstInteraction, { passive: true });
-
+    window.addEventListener("touchend", handleFirstInteraction);
     return () => {
-      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("pointerup", handleFirstInteraction);
       window.removeEventListener("keydown", handleFirstInteraction);
-      window.removeEventListener("touchstart", handleFirstInteraction);
+      window.removeEventListener("touchend", handleFirstInteraction);
     };
   }, [isAuthenticated]);
 
   function resolveRoute(notification: AppNotification) {
     if (notification.link) return notification.link;
-
-    if (notification.metadata?.routeId) {
-      return user?.role === "admin" ? "/admin/horarios" : "/aluno";
-    }
-
-    if (notification.metadata?.scheduleId) {
-      return "/aluno";
-    }
-
+    if (notification.metadata?.routeId) return user?.role === "admin" ? "/admin/horarios" : "/aluno";
+    if (notification.metadata?.scheduleId) return "/aluno";
     return user?.role === "admin" ? "/admin" : "/aluno/notificacoes";
   }
 
   useEffect(() => {
     if (!isAuthenticated) return;
-
     async function handleNewNotification(notification: AppNotification) {
       if (isExternalStudentNotification(notification, user)) {
-        if (audioUnlocked) {
-          await playBipeBipe();
-        } else {
-          pendingSoundRef.current = true;
-          await unlockAudio();
-          if (audioUnlocked) {
-            pendingSoundRef.current = false;
-            await playBipeBipe();
-          }
-        }
+        await unlockAudio();
+        await playBipeBipe();
+        pendingSoundRef.current = true;
       }
-
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
         return [notification, ...current];
       });
       setUnreadCount((count) => count + 1);
-
       toast(notification.title || "Nova notificação", {
         description: notification.message,
-        action: {
-          label: "Abrir",
-          onClick: () => navigate(resolveRoute(notification)),
-        },
+        action: { label: "Abrir", onClick: () => navigate(resolveRoute(notification)) },
       });
     }
-
     function handleTripReminder(data: { message?: string }) {
-      toast("Sua viagem está próxima", {
-        description: data.message || "Seu ônibus sai em breve!",
-        action: {
-          label: "Ver viagem",
-          onClick: () => navigate("/aluno"),
-        },
-      });
+      toast("Sua viagem está próxima", { description: data.message || "Seu ônibus sai em breve!", action: { label: "Ver viagem", onClick: () => navigate("/aluno") } });
     }
-
     function handleCapacityAlert(data: any) {
-      toast.warning("Alerta de lotação", {
-        description: data.current && data.capacity ? `Ônibus com ${data.current}/${data.capacity}` : "Capacidade excedida",
-        action: {
-          label: "Ver rota",
-          onClick: () => navigate("/admin/horarios"),
-        },
-      });
+      toast.warning("Alerta de lotação", { description: data.current && data.capacity ? `Ônibus com ${data.current}/${data.capacity}` : "Capacidade excedida", action: { label: "Ver rota", onClick: () => navigate("/admin/horarios") } });
     }
-
     socket.on("notification:new", handleNewNotification);
     socket.on("trip:reminder", handleTripReminder);
     socket.on("route:capacity-alert", handleCapacityAlert);
     socket.on("admin:capacity-alert", handleCapacityAlert);
-
     return () => {
       socket.off("notification:new", handleNewNotification);
       socket.off("trip:reminder", handleTripReminder);
@@ -240,15 +189,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }
 
-  const value = useMemo(() => ({
-    notifications,
-    unreadCount,
-    loading,
-    refreshNotifications,
-    markAsRead,
-    markAllAsRead,
-  }), [notifications, unreadCount, loading, refreshNotifications]);
-
+  const value = useMemo(() => ({ notifications, unreadCount, loading, refreshNotifications, markAsRead, markAllAsRead }), [notifications, unreadCount, loading, refreshNotifications]);
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
 
