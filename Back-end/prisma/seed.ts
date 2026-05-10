@@ -720,7 +720,7 @@ async function main() {
         routeId: rUfersaManhaIda.id,
         pickupPointId: riachoIdaCentro.id,
         dayOfWeek: "Segunda",
-        status: "confirmed",
+        status: "pending",
       },
       {
         userId: alunoAna.id,
@@ -728,7 +728,7 @@ async function main() {
         routeId: rUfersaManhaVolta.id,
         pickupPointId: riachoVoltaUfersaPortao.id,
         dayOfWeek: "Segunda",
-        status: "confirmed",
+        status: "pending",
       },
       {
         userId: alunoPedro.id,
@@ -744,7 +744,7 @@ async function main() {
         routeId: rUernNoiteVolta.id,
         pickupPointId: riachoVoltaUernEntrada.id,
         dayOfWeek: "Terça",
-        status: "confirmed",
+        status: "pending",
       },
       {
         userId: alunoAna.id,
@@ -768,7 +768,7 @@ async function main() {
         routeId: rUfersaManhaIda.id,
         pickupPointId: riachoIdaCentro.id,
         dayOfWeek: "Sexta",
-        status: "confirmed",
+        status: "pending",
       },
       {
         userId: alunoApodi.id,
@@ -776,7 +776,7 @@ async function main() {
         routeId: rIfrnManhaIda.id,
         pickupPointId: riachoIdaCentro.id,
         dayOfWeek: "Segunda",
-        status: "confirmed",
+        status: "pending",
       },
       {
         userId: alunoApodi.id,
