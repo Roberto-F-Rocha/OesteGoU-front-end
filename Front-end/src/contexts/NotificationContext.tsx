@@ -27,6 +27,51 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
+function playBipeBipe() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    function beep(start: number, frequency: number) {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.17);
+    }
+
+    beep(now, 740);
+    beep(now + 0.22, 920);
+    setTimeout(() => ctx.close().catch(() => undefined), 650);
+  } catch {
+    // Browsers may block audio before user interaction. In this case, just ignore it.
+  }
+}
+
+function isExternalStudentNotification(notification: AppNotification, user?: any) {
+  if (user?.role !== "student") return false;
+
+  const metadata = notification.metadata ?? {};
+  const source = String(metadata.source ?? "");
+  const senderRole = String(metadata.senderRole ?? "");
+  const senderId = metadata.senderId ? Number(metadata.senderId) : null;
+
+  if (source === "student_attendance_self" || source === "reservation_created" || source === "roundtrip_created") return false;
+  if (senderId && user?.id && senderId === Number(user.id)) return false;
+  if (senderRole === "admin" || senderRole === "driver") return true;
+
+  return source.startsWith("driver_") || source.startsWith("admin_") || source === "driver_pending_students";
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -73,6 +118,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) return;
 
     function handleNewNotification(notification: AppNotification) {
+      if (isExternalStudentNotification(notification, user)) playBipeBipe();
+
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
         return [notification, ...current];
