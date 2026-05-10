@@ -28,8 +28,8 @@ import AdminPartnerships from "./admin/AdminPartnerships";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const adminCity = user?.city.name ?? "Riacho da Cruz";
-  const adminState = user?.city.state ?? "RN";
+  const adminCity = user?.city?.name ?? "Riacho da Cruz";
+  const adminState = user?.city?.state ?? "RN";
 
   const navItems = [
     { label: "Painel", path: "/admin", icon: LayoutDashboard },
@@ -59,7 +59,6 @@ export default function AdminDashboard() {
         <Route path="pontos" element={<AdminPickupPoints adminCity={adminCity} adminState={adminState} />} />
         <Route path="documentos" element={<AdminDocuments />} />
         <Route path="push" element={<AdminPush />} />
-
         <Route path="analytics" element={<Navigate to="/admin" replace />} />
         <Route path="bi" element={<Navigate to="/admin" replace />} />
         <Route path="universidades" element={<Navigate to="/admin/universidade" replace />} />
