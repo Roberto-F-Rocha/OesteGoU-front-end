@@ -1,11 +1,20 @@
 import { useNotifications } from "@/contexts/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, BellOff, CheckCheck } from "lucide-react";
+import { Bell, BellOff, CheckCheck, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function StudentNotifications() {
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    soundEnabled,
+    markAsRead,
+    markAllAsRead,
+    toggleNotificationSound,
+    testNotificationSound,
+  } = useNotifications();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -16,11 +25,66 @@ export default function StudentNotifications() {
             {unreadCount > 0 && <Badge variant="default" className="ml-1">{unreadCount} nova{unreadCount > 1 ? "s" : ""}</Badge>}
           </h1>
         </div>
-        {unreadCount > 0 && (
-          <Button size="sm" variant="outline" onClick={markAllAsRead}>
-            <CheckCheck className="w-4 h-4 mr-1.5" /> Marcar todas como lidas
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant={soundEnabled ? "default" : "outline"}
+            onClick={toggleNotificationSound}
+            className="rounded-xl"
+          >
+            {soundEnabled ? (
+              <>
+                <Volume2 className="w-4 h-4 mr-1.5" /> Desativar buzina
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-4 h-4 mr-1.5" /> Ativar buzina
+              </>
+            )}
           </Button>
-        )}
+
+          {soundEnabled && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={testNotificationSound}
+              className="rounded-xl"
+            >
+              <Volume2 className="w-4 h-4 mr-1.5" /> Testar buzina
+            </Button>
+          )}
+
+          {unreadCount > 0 && (
+            <Button size="sm" variant="outline" onClick={markAllAsRead}>
+              <CheckCheck className="w-4 h-4 mr-1.5" /> Marcar todas como lidas
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
+        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          {soundEnabled ? (
+            <Volume2 className="w-5 h-5 text-primary" />
+          ) : (
+            <VolumeX className="w-5 h-5 text-muted-foreground" />
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <p className="font-heading font-semibold text-foreground">
+            Som das notificações
+          </p>
+
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Receba uma buzina curta quando administradores ou motoristas enviarem avisos importantes.
+          </p>
+
+          <p className="text-xs text-muted-foreground">
+            Status atual: {soundEnabled ? "Ativado" : "Desativado"}
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -35,6 +99,7 @@ export default function StudentNotifications() {
           <AnimatePresence>
             {notifications.map((n: any, i) => {
               const isUnread = !n.readAt;
+
               return (
                 <motion.button
                   key={n.id ?? i}
@@ -52,19 +117,25 @@ export default function StudentNotifications() {
                   <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
                     <Bell className="w-5 h-5" />
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-heading font-semibold text-foreground">{n.title}</p>
                       {isUnread && <span className="w-2 h-2 bg-primary rounded-full" />}
                     </div>
+
                     <p className="text-sm text-muted-foreground">{n.message}</p>
+
                     {n.createdAt && (
                       <p className="text-xs text-muted-foreground">
                         {new Date(n.createdAt).toLocaleString("pt-BR")}
                       </p>
                     )}
                   </div>
-                  {isUnread && <CheckCheck className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />}
+
+                  {isUnread && (
+                    <CheckCheck className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
+                  )}
                 </motion.button>
               );
             })}
