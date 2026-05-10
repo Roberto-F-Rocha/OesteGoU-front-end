@@ -3,26 +3,6 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function clearData() {
-  await prisma.analyticsEvent.deleteMany();
-  await prisma.pushSendLog.deleteMany();
-  await prisma.pushSubscription.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.auditLog.deleteMany();
-  await prisma.userDocument.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.reservation.deleteMany();
-  await prisma.routePoint.deleteMany();
-  await prisma.transportRoute.deleteMany();
-  await prisma.schedule.deleteMany();
-  await prisma.vehicle.deleteMany();
-  await prisma.pickupPoint.deleteMany();
-  await prisma.university.deleteMany();
-  await prisma.cityAgreement.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.city.deleteMany();
-}
-
 async function resetSequences() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
@@ -47,7 +27,7 @@ async function resetSequences() {
   `);
 }
 async function main() {
-  await clearData();
+  await resetSequences();
 
   const senhaPadrao = await bcrypt.hash("12345678", 10);
 
