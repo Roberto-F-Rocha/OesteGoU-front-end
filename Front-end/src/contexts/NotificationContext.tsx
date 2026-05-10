@@ -20,9 +20,12 @@ interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
   loading: boolean;
+  soundEnabled: boolean;
   refreshNotifications: () => Promise<void>;
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  enableNotificationSound: () => Promise<boolean>;
+  testNotificationSound: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -41,11 +44,13 @@ function getAudioContext() {
 async function unlockAudio() {
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
+    if (!ctx) return false;
     if (ctx.state === "suspended") await ctx.resume();
     audioUnlocked = ctx.state === "running";
+    return audioUnlocked;
   } catch {
     audioUnlocked = false;
+    return false;
   }
 }
 
@@ -55,22 +60,22 @@ async function playBipeBipe() {
     if (!ctx) return;
     if (ctx.state === "suspended") await ctx.resume();
     if (ctx.state !== "running") return;
-    const now = ctx.currentTime + 0.02;
+    const now = ctx.currentTime + 0.03;
     function beep(start: number, frequency: number) {
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
       oscillator.type = "square";
       oscillator.frequency.setValueAtTime(frequency, start);
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.35, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.45, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start(start);
-      oscillator.stop(start + 0.22);
+      oscillator.stop(start + 0.26);
     }
     beep(now, 660);
-    beep(now + 0.28, 880);
+    beep(now + 0.32, 880);
   } catch {}
 }
 
@@ -92,6 +97,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("oestegou_notification_sound") === "enabled");
   const pendingSoundRef = useRef(false);
 
   const refreshNotifications = useCallback(async () => {
@@ -112,26 +118,46 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refreshNotifications(); }, [refreshNotifications]);
 
+  async function enableNotificationSound() {
+    const unlocked = await unlockAudio();
+    if (unlocked) {
+      localStorage.setItem("oestegou_notification_sound", "enabled");
+      setSoundEnabled(true);
+      await playBipeBipe();
+      toast.success("Som ativado", { description: "Você ouvirá o bipe-bipe nas notificações externas." });
+    } else {
+      toast.error("Som bloqueado", { description: "O navegador bloqueou o áudio. Clique no botão novamente ou confira as permissões de som do site." });
+    }
+    return unlocked;
+  }
+
+  async function testNotificationSound() {
+    const unlocked = await unlockAudio();
+    if (unlocked) {
+      localStorage.setItem("oestegou_notification_sound", "enabled");
+      setSoundEnabled(true);
+      await playBipeBipe();
+    }
+  }
+
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !soundEnabled) return;
     async function handleFirstInteraction() {
-      await unlockAudio();
-      if (pendingSoundRef.current) {
+      const unlocked = await unlockAudio();
+      if (unlocked && pendingSoundRef.current) {
         pendingSoundRef.current = false;
         await playBipeBipe();
       }
     }
     window.addEventListener("click", handleFirstInteraction);
-    window.addEventListener("pointerup", handleFirstInteraction);
     window.addEventListener("keydown", handleFirstInteraction);
     window.addEventListener("touchend", handleFirstInteraction);
     return () => {
       window.removeEventListener("click", handleFirstInteraction);
-      window.removeEventListener("pointerup", handleFirstInteraction);
       window.removeEventListener("keydown", handleFirstInteraction);
       window.removeEventListener("touchend", handleFirstInteraction);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, soundEnabled]);
 
   function resolveRoute(notification: AppNotification) {
     if (notification.link) return notification.link;
@@ -143,10 +169,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated) return;
     async function handleNewNotification(notification: AppNotification) {
-      if (isExternalStudentNotification(notification, user)) {
-        await unlockAudio();
-        await playBipeBipe();
-        pendingSoundRef.current = true;
+      if (soundEnabled && isExternalStudentNotification(notification, user)) {
+        const unlocked = await unlockAudio();
+        if (unlocked) await playBipeBipe();
+        else pendingSoundRef.current = true;
       }
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
@@ -174,7 +200,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off("route:capacity-alert", handleCapacityAlert);
       socket.off("admin:capacity-alert", handleCapacityAlert);
     };
-  }, [isAuthenticated, navigate, user]);
+  }, [isAuthenticated, navigate, user, soundEnabled]);
 
   async function markAsRead(id: number) {
     await api.patch(`/notifications/${id}/read`);
@@ -189,7 +215,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }
 
-  const value = useMemo(() => ({ notifications, unreadCount, loading, refreshNotifications, markAsRead, markAllAsRead }), [notifications, unreadCount, loading, refreshNotifications]);
+  const value = useMemo(() => ({ notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound, testNotificationSound }), [notifications, unreadCount, loading, soundEnabled, refreshNotifications]);
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
 
