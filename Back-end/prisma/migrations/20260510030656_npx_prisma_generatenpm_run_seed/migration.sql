@@ -1,16 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `Horario` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `HorarioLocal` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Local` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Reserva` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Universidade` table. If the table is not empty, all the data it contains will be lost.
-  - A unique constraint covering the columns `[cpf]` on the table `User` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `updatedAt` to the `User` table without a default value. This is not possible if the table is not empty.
-  - Changed the type of `role` on the `User` table. No cast exists, the column would be dropped and recreated, which cannot be done if there is data, since the column is required.
-
-*/
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('admin', 'student', 'driver');
 
@@ -24,7 +11,7 @@ CREATE TYPE "AgreementStatus" AS ENUM ('pending', 'active', 'rejected', 'inactiv
 CREATE TYPE "TripType" AS ENUM ('ida', 'volta');
 
 -- CreateEnum
-CREATE TYPE "ReservationStatus" AS ENUM ('confirmed', 'canceled', 'absent');
+CREATE TYPE "ReservationStatus" AS ENUM ('pending', 'confirmed', 'canceled', 'absent');
 
 -- CreateEnum
 CREATE TYPE "DocumentType" AS ENUM ('profile_photo', 'enrollment_proof', 'driver_license', 'general');
@@ -46,59 +33,6 @@ CREATE TYPE "MaintenanceTicketSeverity" AS ENUM ('low', 'medium', 'high');
 
 -- CreateEnum
 CREATE TYPE "MaintenanceTicketStatus" AS ENUM ('open', 'in_progress', 'resolved', 'canceled');
-
--- DropForeignKey
-ALTER TABLE "Horario" DROP CONSTRAINT "Horario_universidadeId_fkey";
-
--- DropForeignKey
-ALTER TABLE "HorarioLocal" DROP CONSTRAINT "HorarioLocal_horarioId_fkey";
-
--- DropForeignKey
-ALTER TABLE "HorarioLocal" DROP CONSTRAINT "HorarioLocal_localId_fkey";
-
--- DropForeignKey
-ALTER TABLE "Local" DROP CONSTRAINT "Local_universidadeId_fkey";
-
--- DropForeignKey
-ALTER TABLE "Reserva" DROP CONSTRAINT "Reserva_horarioId_fkey";
-
--- DropForeignKey
-ALTER TABLE "Reserva" DROP CONSTRAINT "Reserva_userId_fkey";
-
--- AlterTable
-ALTER TABLE "Session" ADD COLUMN     "ipAddress" TEXT;
-
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "birthDate" TIMESTAMP(3),
-ADD COLUMN     "cep" TEXT,
-ADD COLUMN     "cityId" INTEGER,
-ADD COLUMN     "cpf" TEXT,
-ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN     "institution" TEXT,
-ADD COLUMN     "neighborhood" TEXT,
-ADD COLUMN     "number" TEXT,
-ADD COLUMN     "phone" TEXT,
-ADD COLUMN     "photo" TEXT,
-ADD COLUMN     "status" "UserStatus" NOT NULL DEFAULT 'active',
-ADD COLUMN     "street" TEXT,
-ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL,
-DROP COLUMN "role",
-ADD COLUMN     "role" "UserRole" NOT NULL;
-
--- DropTable
-DROP TABLE "Horario";
-
--- DropTable
-DROP TABLE "HorarioLocal";
-
--- DropTable
-DROP TABLE "Local";
-
--- DropTable
-DROP TABLE "Reserva";
-
--- DropTable
-DROP TABLE "Universidade";
 
 -- CreateTable
 CREATE TABLE "City" (
@@ -127,6 +61,30 @@ CREATE TABLE "CityAgreement" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "CityAgreement_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "User" (
+    "id" SERIAL NOT NULL,
+    "nome" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "senha" TEXT NOT NULL,
+    "role" "UserRole" NOT NULL,
+    "status" "UserStatus" NOT NULL DEFAULT 'active',
+    "cpf" TEXT,
+    "phone" TEXT,
+    "birthDate" TIMESTAMP(3),
+    "institution" TEXT,
+    "photo" TEXT,
+    "cep" TEXT,
+    "street" TEXT,
+    "number" TEXT,
+    "neighborhood" TEXT,
+    "cityId" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -295,7 +253,7 @@ CREATE TABLE "Reservation" (
     "routeId" INTEGER,
     "pickupPointId" INTEGER,
     "dayOfWeek" TEXT,
-    "status" "ReservationStatus" NOT NULL DEFAULT 'confirmed',
+    "status" "ReservationStatus" NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -319,6 +277,19 @@ CREATE TABLE "MaintenanceTicket" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "MaintenanceTicket_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Session" (
+    "id" TEXT NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "refreshToken" TEXT NOT NULL,
+    "userAgent" TEXT,
+    "ipAddress" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -352,6 +323,21 @@ CREATE INDEX "CityAgreement_status_idx" ON "CityAgreement"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CityAgreement_requesterCityId_partnerCityId_key" ON "CityAgreement"("requesterCityId", "partnerCityId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_cpf_key" ON "User"("cpf");
+
+-- CreateIndex
+CREATE INDEX "User_role_idx" ON "User"("role");
+
+-- CreateIndex
+CREATE INDEX "User_cityId_idx" ON "User"("cityId");
+
+-- CreateIndex
+CREATE INDEX "User_status_idx" ON "User"("status");
 
 -- CreateIndex
 CREATE INDEX "Notification_userId_idx" ON "Notification"("userId");
@@ -474,6 +460,12 @@ CREATE INDEX "MaintenanceTicket_vehicleId_status_idx" ON "MaintenanceTicket"("ve
 CREATE INDEX "MaintenanceTicket_cityId_status_createdAt_idx" ON "MaintenanceTicket"("cityId", "status", "createdAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Session_refreshToken_key" ON "Session"("refreshToken");
+
+-- CreateIndex
+CREATE INDEX "Session_userId_idx" ON "Session"("userId");
+
+-- CreateIndex
 CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
 
 -- CreateIndex
@@ -484,21 +476,6 @@ CREATE INDEX "AuditLog_action_idx" ON "AuditLog"("action");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
-
--- CreateIndex
-CREATE INDEX "Session_userId_idx" ON "Session"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_cpf_key" ON "User"("cpf");
-
--- CreateIndex
-CREATE INDEX "User_role_idx" ON "User"("role");
-
--- CreateIndex
-CREATE INDEX "User_cityId_idx" ON "User"("cityId");
-
--- CreateIndex
-CREATE INDEX "User_status_idx" ON "User"("status");
 
 -- AddForeignKey
 ALTER TABLE "CityAgreement" ADD CONSTRAINT "CityAgreement_requesterCityId_fkey" FOREIGN KEY ("requesterCityId") REFERENCES "City"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -592,6 +569,9 @@ ALTER TABLE "MaintenanceTicket" ADD CONSTRAINT "MaintenanceTicket_openedById_fke
 
 -- AddForeignKey
 ALTER TABLE "MaintenanceTicket" ADD CONSTRAINT "MaintenanceTicket_resolvedById_fkey" FOREIGN KEY ("resolvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
