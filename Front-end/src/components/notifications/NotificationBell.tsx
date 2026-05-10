@@ -3,21 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, CheckCheck, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
-
-interface NotificationItem {
-  id: number;
-  title: string;
-  message: string;
-  type: "info" | "success" | "warning" | "error";
-  readAt?: string | null;
-  link?: string | null;
-  createdAt: string;
-}
 
 function notificationHome(role?: string) {
   if (role === "driver") return "/motorista/notificacoes";
@@ -36,27 +26,10 @@ function normalizeNotificationLink(link: string | null | undefined, role?: strin
 export default function NotificationBell() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { notifications, unreadCount, loading, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const panelRef = useRef<HTMLDivElement | null>(null);
-
-  async function loadNotifications() {
-    try {
-      setLoading(true);
-      const { data } = await api.get("/notifications/my");
-      setNotifications(data.notifications ?? []);
-      setUnreadCount(data.unreadCount ?? 0);
-    } catch {
-      toast({ title: "Erro ao carregar notificações", description: "Não foi possível buscar suas notificações.", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadNotifications(); }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -75,28 +48,22 @@ export default function NotificationBell() {
     };
   }, [open]);
 
-  useLiveRefresh(loadNotifications, { intervalMs: 20000 });
+  useLiveRefresh(refreshNotifications, { intervalMs: 20000 });
 
-  async function markAsRead(id: number) {
+  async function handleMarkAllAsRead() {
     try {
-      await api.patch(`/notifications/${id}/read`);
-      await loadNotifications();
-    } catch {
-      toast({ title: "Erro", description: "Não foi possível marcar como lida.", variant: "destructive" });
-    }
-  }
-
-  async function markAllAsRead() {
-    try {
-      await api.patch("/notifications/read-all");
-      await loadNotifications();
+      await markAllAsRead();
     } catch {
       toast({ title: "Erro", description: "Não foi possível marcar todas como lidas.", variant: "destructive" });
     }
   }
 
-  async function openNotification(notification: NotificationItem) {
-    if (!notification.readAt) await markAsRead(notification.id);
+  async function openNotification(notification: any) {
+    try {
+      if (!notification.readAt && notification.id) await markAsRead(notification.id);
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível marcar como lida.", variant: "destructive" });
+    }
     setOpen(false);
     navigate(normalizeNotificationLink(notification.link, user?.role));
   }
@@ -125,7 +92,7 @@ export default function NotificationBell() {
                   <p className="text-xs text-muted-foreground">{unreadCount > 0 ? `${unreadCount} não lida${unreadCount > 1 ? "s" : ""}` : "Tudo lido"}</p>
                 </button>
                 <div className="flex items-center gap-1.5">
-                  {unreadCount > 0 && <Button variant="ghost" size="sm" onClick={markAllAsRead} className="rounded-full"><CheckCheck className="w-4 h-4 mr-1" /> Ler todas</Button>}
+                  {unreadCount > 0 && <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="rounded-full"><CheckCheck className="w-4 h-4 mr-1" /> Ler todas</Button>}
                   <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="rounded-full h-9 w-9" aria-label="Fechar notificações"><X className="w-4 h-4" /></Button>
                 </div>
               </div>
@@ -139,7 +106,7 @@ export default function NotificationBell() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm text-foreground leading-snug">{notification.title}</p>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{notification.message}</p>
-                          <p className="text-[11px] text-muted-foreground mt-1">{new Date(notification.createdAt).toLocaleString("pt-BR")}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{notification.createdAt ? new Date(notification.createdAt).toLocaleString("pt-BR") : ""}</p>
                         </div>
                       </div>
                     </button>
