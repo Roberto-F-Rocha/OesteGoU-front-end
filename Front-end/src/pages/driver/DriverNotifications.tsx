@@ -1,10 +1,18 @@
 import { useNotifications } from "@/contexts/NotificationContext";
-import { Bell, CheckCheck, Loader2 } from "lucide-react";
+import { Bell, BellOff, CheckCheck, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function DriverNotifications() {
-  const { notifications, unreadCount, loading, markAllAsRead, markAsRead } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    soundEnabled,
+    toggleNotificationSound,
+    markAllAsRead,
+    markAsRead,
+  } = useNotifications();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -15,24 +23,47 @@ export default function DriverNotifications() {
             {unreadCount > 0 && <Badge className="rounded-full">{unreadCount} nova{unreadCount > 1 ? "s" : ""}</Badge>}
           </h1>
         </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" onClick={markAllAsRead}>
-            <CheckCheck className="w-4 h-4 mr-2" /> Marcar todas como lidas
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant={soundEnabled ? "default" : "outline"} onClick={toggleNotificationSound} className="rounded-xl">
+            {soundEnabled ? <><Volume2 className="w-4 h-4 mr-1.5" /> Desativar buzina</> : <><VolumeX className="w-4 h-4 mr-1.5" /> Ativar buzina</>}
           </Button>
-        )}
+
+          {unreadCount > 0 && (
+            <Button variant="outline" onClick={markAllAsRead}>
+              <CheckCheck className="w-4 h-4 mr-2" /> Marcar todas como lidas
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
+        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+          {soundEnabled ? <Volume2 className="w-5 h-5 text-primary" /> : <VolumeX className="w-5 h-5 text-muted-foreground" />}
+        </div>
+
+        <div className="space-y-1">
+          <p className="font-heading font-semibold text-foreground">Som das notificações</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">Receba alertas sonoros quando alunos, administradores ou o sistema enviarem avisos importantes.</p>
+          <p className="text-xs text-muted-foreground">Status atual: {soundEnabled ? "Ativado" : "Desativado"}</p>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Carregando notificações...
           </div>
         ) : notifications.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação encontrada.</div>
+          <div className="p-10 text-center text-sm text-muted-foreground">
+            <BellOff className="w-10 h-10 mx-auto mb-3" />
+            Nenhuma notificação encontrada.
+          </div>
         ) : (
           <div className="divide-y divide-border">
             {notifications.map((notification, index) => {
               const unread = !notification.readAt;
+
               return (
                 <button
                   key={notification.id ?? index}
@@ -42,14 +73,21 @@ export default function DriverNotifications() {
                 >
                   <div className="flex items-start gap-3">
                     <div className={`mt-1 h-2.5 w-2.5 rounded-full ${unread ? "bg-primary" : "bg-muted"}`} />
+
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-heading font-semibold text-foreground">{notification.title}</p>
                         {notification.type && <Badge variant="outline">{notification.type}</Badge>}
                       </div>
-                      <p className="text-sm text-muted-foreground break-words">{notification.message}</p>
+
+                      <p className="text-sm text-muted-foreground break-words">
+                        {notification.message}
+                      </p>
+
                       {notification.createdAt && (
-                        <p className="text-xs text-muted-foreground">{new Date(notification.createdAt).toLocaleString("pt-BR")}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(notification.createdAt).toLocaleString("pt-BR")}
+                        </p>
                       )}
                     </div>
                   </div>
