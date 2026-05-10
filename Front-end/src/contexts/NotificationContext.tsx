@@ -25,6 +25,8 @@ interface NotificationContextType {
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   enableNotificationSound: () => Promise<boolean>;
+  disableNotificationSound: () => void;
+  toggleNotificationSound: () => Promise<void>;
   testNotificationSound: () => Promise<void>;
 }
 
@@ -54,28 +56,44 @@ async function unlockAudio() {
   }
 }
 
-async function playBipeBipe() {
+async function playHorn() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") await ctx.resume();
     if (ctx.state !== "running") return;
+
     const now = ctx.currentTime + 0.03;
-    function beep(start: number, frequency: number) {
+
+    function honk(start: number, duration: number, baseFrequency: number) {
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
-      oscillator.type = "square";
-      oscillator.frequency.setValueAtTime(frequency, start);
+      const filter = ctx.createBiquadFilter();
+
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(baseFrequency, start);
+      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 0.88, start + duration * 0.35);
+      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 1.04, start + duration * 0.7);
+      oscillator.frequency.linearRampToValueAtTime(baseFrequency * 0.92, start + duration);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(950, start);
+      filter.Q.setValueAtTime(4, start);
+
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.45, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
-      oscillator.connect(gain);
+      gain.gain.exponentialRampToValueAtTime(0.5, start + 0.035);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + duration * 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+      oscillator.connect(filter);
+      filter.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start(start);
-      oscillator.stop(start + 0.26);
+      oscillator.stop(start + duration + 0.03);
     }
-    beep(now, 660);
-    beep(now + 0.32, 880);
+
+    honk(now, 0.32, 340);
+    honk(now + 0.42, 0.38, 300);
   } catch {}
 }
 
@@ -123,12 +141,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (unlocked) {
       localStorage.setItem("oestegou_notification_sound", "enabled");
       setSoundEnabled(true);
-      await playBipeBipe();
-      toast.success("Som ativado", { description: "Você ouvirá o bipe-bipe nas notificações externas." });
+      await playHorn();
+      toast.success("Som ativado", { description: "Você ouvirá a buzina nas notificações externas." });
     } else {
-      toast.error("Som bloqueado", { description: "O navegador bloqueou o áudio. Clique no botão novamente ou confira as permissões de som do site." });
+      toast.error("Som bloqueado", { description: "O navegador bloqueou o áudio. Confira as permissões de som do site." });
     }
     return unlocked;
+  }
+
+  function disableNotificationSound() {
+    localStorage.removeItem("oestegou_notification_sound");
+    setSoundEnabled(false);
+    pendingSoundRef.current = false;
+    toast.info("Som desativado", { description: "As notificações continuarão chegando sem buzina." });
+  }
+
+  async function toggleNotificationSound() {
+    if (soundEnabled) {
+      disableNotificationSound();
+      return;
+    }
+    await enableNotificationSound();
   }
 
   async function testNotificationSound() {
@@ -136,7 +169,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (unlocked) {
       localStorage.setItem("oestegou_notification_sound", "enabled");
       setSoundEnabled(true);
-      await playBipeBipe();
+      await playHorn();
     }
   }
 
@@ -146,7 +179,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const unlocked = await unlockAudio();
       if (unlocked && pendingSoundRef.current) {
         pendingSoundRef.current = false;
-        await playBipeBipe();
+        await playHorn();
       }
     }
     window.addEventListener("click", handleFirstInteraction);
@@ -171,7 +204,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     async function handleNewNotification(notification: AppNotification) {
       if (soundEnabled && isExternalStudentNotification(notification, user)) {
         const unlocked = await unlockAudio();
-        if (unlocked) await playBipeBipe();
+        if (unlocked) await playHorn();
         else pendingSoundRef.current = true;
       }
       setNotifications((current) => {
@@ -215,7 +248,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }
 
-  const value = useMemo(() => ({ notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound, testNotificationSound }), [notifications, unreadCount, loading, soundEnabled, refreshNotifications]);
+  const value = useMemo(() => ({ notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound, disableNotificationSound, toggleNotificationSound, testNotificationSound }), [notifications, unreadCount, loading, soundEnabled, refreshNotifications]);
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
 
