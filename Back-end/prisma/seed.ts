@@ -108,7 +108,7 @@ async function main() {
     cityId: apodi.id,
   });
 
-  const adminPDF = await createUser(senhaPadrao, {
+  const adminPau = await createUser(senhaPadrao, {
     nome: "Administrador Pau dos Ferros",
     email: "admin.pau@demo.com",
     role: "admin",
