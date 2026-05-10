@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { socket } from "@/services/socket";
 import { useAuth } from "@/contexts/AuthContext";
-import { playNotificationHorn } from "@/lib/notificationSound";
 
 export interface AppNotification {
   id?: number;
@@ -74,8 +73,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!isAuthenticated) return;
 
     function handleNewNotification(notification: AppNotification) {
-      playNotificationHorn();
-
       setNotifications((current) => {
         if (notification.id && current.some((item) => item.id === notification.id)) return current;
         return [notification, ...current];
@@ -92,8 +89,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     function handleTripReminder(data: { message?: string }) {
-      playNotificationHorn();
-
       toast("Sua viagem está próxima", {
         description: data.message || "Seu ônibus sai em breve!",
         action: {
@@ -104,8 +99,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     function handleCapacityAlert(data: any) {
-      playNotificationHorn();
-
       toast.warning("Alerta de lotação", {
         description: data.current && data.capacity ? `Ônibus com ${data.current}/${data.capacity}` : "Capacidade excedida",
         action: {
