@@ -401,25 +401,25 @@ async function main() {
   });
 
   await prisma.auditLog.create({
-    data: {
-      userId: adminDemo.id,
-      cityId: cidade.id,
-      action: "seed",
-      entity: "Database",
-      entityId: 1,
-      description: "Seed demo simplificado executado com sucesso",
-      metadata: {
-        users: {
-          adminDemo: "admindemo@demo.com",
-          adminLimpo: "adminlimpo@demo.com",
-          alunoDemo: "alunodemo@demo.com",
-          alunoLimpo: "alunolimpo@demo.com",
-          motoristaDemo: "motoristademo@demo.com",
-          motoristaLimpo: "motoristalimpo@demo.com",
-        },
+  data: {
+    userId: adminDemo.id,
+    cityId: cidade.id,
+    action: "create",
+    entity: "Database",
+    entityId: 1,
+    description: "Seed demo simplificado executado com sucesso",
+    metadata: {
+      users: {
+        adminDemo: "admindemo@demo.com",
+        adminLimpo: "adminlimpo@demo.com",
+        alunoDemo: "alunodemo@demo.com",
+        alunoLimpo: "alunolimpo@demo.com",
+        motoristaDemo: "motoristademo@demo.com",
+        motoristaLimpo: "motoristalimpo@demo.com",
       },
     },
-  });
+  },
+});
 
   console.log("Seed simplificado executado com sucesso.");
   console.table([
