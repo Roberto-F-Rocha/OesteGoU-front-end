@@ -1,5 +1,7 @@
+import { NotificationType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { sendPushToUser } from "../services/pushService";
+import { createNotification } from "../services/notificationService";
 
 type PushTarget = "all" | "student" | "driver" | "admin";
 
@@ -31,17 +33,32 @@ export async function sendPush(req: any, res: any) {
 
   const users = await prisma.user.findMany({
     where,
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   let sent = 0;
   await Promise.all(
     users.map(async (user) => {
       try {
+        await createNotification({
+          userId: user.id,
+          title,
+          message,
+          type: NotificationType.info,
+          link: url,
+          metadata: {
+            source: "admin_push",
+            senderRole: authenticatedUser?.role ?? "admin",
+            senderId: authenticatedUser?.id ?? null,
+            target,
+            cityId: cityId ? Number(cityId) : authenticatedUser?.cityId ?? null,
+          },
+        });
+
         await sendPushToUser(user.id, { title, body: message, url });
         sent += 1;
-      } catch {
-        // mantém envio para os demais usuários mesmo se um dispositivo falhar
+      } catch (error) {
+        console.error("Erro ao enviar notificação", error);
       }
     })
   );
