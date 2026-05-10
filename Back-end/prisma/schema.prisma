@@ -34,6 +34,7 @@ enum TripType {
 }
 
 enum ReservationStatus {
+  pending
   confirmed
   canceled
   absent
@@ -386,7 +387,7 @@ model Reservation {
   routeId       Int?
   pickupPointId Int?
   dayOfWeek     String?
-  status        ReservationStatus @default(confirmed)
+  status        ReservationStatus @default(pending)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
