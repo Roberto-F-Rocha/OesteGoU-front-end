@@ -71,16 +71,32 @@ async function playHorn(audioRef?: HTMLAudioElement | null) {
   }
 }
 
-function isExternalStudentNotification(notification: AppNotification, user?: any) {
-  if (user?.role !== "student") return false;
+function isExternalNotification(notification: AppNotification, user?: any) {
+  if (!user?.role) return false;
   const metadata = notification.metadata ?? {};
   const source = String(metadata.source ?? "");
   const senderRole = String(metadata.senderRole ?? "");
   const senderId = metadata.senderId ? Number(metadata.senderId) : null;
-  if (source === "student_attendance_self" || source === "reservation_created" || source === "roundtrip_created") return false;
+
   if (senderId && user?.id && senderId === Number(user.id)) return false;
-  if (senderRole === "admin" || senderRole === "driver") return true;
-  return source.startsWith("driver_") || source.startsWith("admin_") || source === "driver_pending_students";
+
+  if (user.role === "student") {
+    if (source === "student_attendance_self" || source === "reservation_created" || source === "roundtrip_created") return false;
+    if (senderRole === "admin" || senderRole === "driver") return true;
+    return source.startsWith("driver_") || source.startsWith("admin_") || source === "driver_pending_students";
+  }
+
+  if (user.role === "driver") {
+    if (senderRole === "admin" || senderRole === "student") return true;
+    return source.startsWith("admin_") || source.startsWith("student_") || source === "admin_push" || source.includes("reservation") || source.includes("attendance");
+  }
+
+  if (user.role === "admin") {
+    if (senderRole === "driver" || senderRole === "student") return true;
+    return source.startsWith("driver_") || source.startsWith("student_") || source.includes("reservation") || source.includes("attendance") || source.includes("document");
+  }
+
+  return false;
 }
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -184,13 +200,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (notification.link) return notification.link;
     if (notification.metadata?.routeId) return user?.role === "admin" ? "/admin/horarios" : "/aluno";
     if (notification.metadata?.scheduleId) return "/aluno";
-    return user?.role === "admin" ? "/admin" : "/aluno/notificacoes";
+    return user?.role === "admin" ? "/admin" : user?.role === "driver" ? "/motorista/notificacoes" : "/aluno/notificacoes";
   }
 
   useEffect(() => {
     if (!isAuthenticated) return;
     async function handleNewNotification(notification: AppNotification) {
-      if (soundEnabled && isExternalStudentNotification(notification, user)) {
+      if (soundEnabled && isExternalNotification(notification, user)) {
         if (audioUnlocked) await playHorn(hornAudioRef.current);
         else pendingSoundRef.current = true;
       }
