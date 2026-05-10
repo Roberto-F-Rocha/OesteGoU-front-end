@@ -23,6 +23,29 @@ async function clearData() {
   await prisma.city.deleteMany();
 }
 
+async function resetSequences() {
+  await prisma.$executeRawUnsafe(`
+    TRUNCATE TABLE
+      "AnalyticsEvent",
+      "PushSendLog",
+      "PushSubscription",
+      "Notification",
+      "AuditLog",
+      "UserDocument",
+      "Session",
+      "Reservation",
+      "RoutePoint",
+      "TransportRoute",
+      "Schedule",
+      "Vehicle",
+      "PickupPoint",
+      "University",
+      "CityAgreement",
+      "User",
+      "City"
+    RESTART IDENTITY CASCADE;
+  `);
+}
 async function main() {
   await clearData();
 
