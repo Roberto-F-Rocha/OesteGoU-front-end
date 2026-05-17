@@ -10,23 +10,24 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 
 function notificationHome(role?: string) {
+  if (role === "admin") return "/admin/notificacoes";
   if (role === "driver") return "/motorista/notificacoes";
-  if (role === "admin") return "/admin/push";
   return "/aluno/notificacoes";
 }
 
 function normalizeNotificationLink(link: string | null | undefined, role?: string) {
   if (!link || link === "/") return notificationHome(role);
-  if (link.startsWith("/driver/routes") || link.startsWith("/driver")) return "/motorista";
+  if (link === "/admin/push" || link === "/admin/notificacoes" || link === "/notifications" || link === "/notificacoes") return notificationHome(role);
+  if (link.startsWith("/driver/routes")) return "/motorista/rotas";
+  if (link.startsWith("/driver")) return link.replace("/driver", "/motorista");
   if (link.startsWith("/student")) return link.replace("/student", "/aluno");
-  if (link === "/notifications" || link === "/notificacoes") return notificationHome(role);
   return link;
 }
 
 export default function NotificationBell() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound, testNotificationSound } = useNotifications();
+  const { notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound } = useNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -54,14 +55,9 @@ export default function NotificationBell() {
     try { await markAllAsRead(); } catch { toast({ title: "Erro", description: "Não foi possível marcar todas como lidas.", variant: "destructive" }); }
   }
 
-  async function handleEnableSound(event: React.MouseEvent) {
+  async function handleToggleSound(event: React.MouseEvent) {
     event.stopPropagation();
     await enableNotificationSound();
-  }
-
-  async function handleTestSound(event: React.MouseEvent) {
-    event.stopPropagation();
-    await testNotificationSound();
   }
 
   async function openNotification(notification: any) {
@@ -77,7 +73,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-sm hover:bg-muted active:scale-95 transition-all" aria-label="Abrir notificações">
+      <button type="button" onClick={goToNotifications} className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-sm hover:bg-muted active:scale-95 transition-all" aria-label="Abrir notificações">
         <Bell className={cn("w-4 h-4", unreadCount > 0 && "text-primary")} />
         {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-background animate-pulse">{unreadCount > 9 ? "9+" : unreadCount}</span>}
       </button>
@@ -99,11 +95,10 @@ export default function NotificationBell() {
                 </div>
               </div>
               <div className="p-3 border-b border-border bg-muted/30">
-                {soundEnabled ? (
-                  <Button type="button" variant="outline" size="sm" onClick={handleTestSound} className="w-full justify-center rounded-xl"><Volume2 className="w-4 h-4 mr-2" /> Som ativado · testar bipe</Button>
-                ) : (
-                  <Button type="button" size="sm" onClick={handleEnableSound} className="w-full justify-center rounded-xl"><VolumeX className="w-4 h-4 mr-2" /> Ativar som das notificações</Button>
-                )}
+                <Button type="button" variant={soundEnabled ? "outline" : "default"} size="sm" onClick={handleToggleSound} className="w-full justify-center rounded-xl">
+                  {soundEnabled ? <Volume2 className="w-4 h-4 mr-2" /> : <VolumeX className="w-4 h-4 mr-2" />}
+                  {soundEnabled ? "Som ativado" : "Ativar som das notificações"}
+                </Button>
               </div>
               <div className="max-h-[70vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:max-h-96">
                 {loading ? <div className="p-8 text-center text-sm flex items-center justify-center gap-2 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Carregando...</div> : notifications.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação ainda.</div> : notifications.slice(0, 8).map((notification) => {
