@@ -10,14 +10,14 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 
 function notificationHome(role?: string) {
-  if (role === "admin") return "/admin/notificacao";
+  if (role === "admin") return "/admin/push";
   if (role === "driver") return "/motorista/notificacoes";
   return "/aluno/notificacoes";
 }
 
 function normalizeNotificationLink(link: string | null | undefined, role?: string) {
   if (!link || link === "/") return notificationHome(role);
-  if (link === "/admin/push" || link === "/admin/notificacoes" || link === "/admin/notificacao" || link === "/notifications" || link === "/notificacoes") return notificationHome(role);
+  if (link === "/admin/notificacoes" || link === "/admin/notificacao" || link === "/notifications" || link === "/notificacoes") return notificationHome(role);
   if (link.startsWith("/driver/routes")) return "/motorista/rotas";
   if (link.startsWith("/driver")) return link.replace("/driver", "/motorista");
   if (link.startsWith("/student")) return link.replace("/student", "/aluno");
@@ -27,7 +27,7 @@ function normalizeNotificationLink(link: string | null | undefined, role?: strin
 export default function NotificationBell() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, enableNotificationSound } = useNotifications();
+  const { notifications, unreadCount, loading, soundEnabled, refreshNotifications, markAsRead, markAllAsRead, toggleNotificationSound } = useNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -57,7 +57,7 @@ export default function NotificationBell() {
 
   async function handleToggleSound(event: React.MouseEvent) {
     event.stopPropagation();
-    await enableNotificationSound();
+    await toggleNotificationSound();
   }
 
   async function openNotification(notification: any) {
@@ -97,7 +97,7 @@ export default function NotificationBell() {
               <div className="p-3 border-b border-border bg-muted/30">
                 <Button type="button" variant={soundEnabled ? "outline" : "default"} size="sm" onClick={handleToggleSound} className="w-full justify-center rounded-xl">
                   {soundEnabled ? <Volume2 className="w-4 h-4 mr-2" /> : <VolumeX className="w-4 h-4 mr-2" />}
-                  {soundEnabled ? "Som ativado" : "Ativar som das notificações"}
+                  {soundEnabled ? "Desativar som" : "Ativar som"}
                 </Button>
               </div>
               <div className="max-h-[70vh] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:max-h-96">
