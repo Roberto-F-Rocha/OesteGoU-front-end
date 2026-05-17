@@ -149,7 +149,13 @@ export default function Login() {
               </p>
             )}
             <p className="text-xs text-center text-muted-foreground">
-              Demo: {selectedRole === "admin" ? "admin@oestegou.com / 123456" : selectedRole === "student" ? "aluno@oestegou.com / 123456" : "motorista@oestegou.com / 123456"}
+              Demo: {" "}
+               {selectedRole === "admin"
+                  ? "admin@demo.com  / 12345678"
+                  : selectedRole == "student"
+                    ? "aluno1@demo.com  / 12345678"
+                    : "motorista1@demo.com  / 12345678"
+               }
             </p>
           </motion.form>
         )}

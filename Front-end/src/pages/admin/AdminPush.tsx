@@ -19,18 +19,37 @@ interface PushHistoryItem {
   sentBy?: { nome: string; email: string } | null;
 }
 
+function targetLabel(target: string) {
+  const labels: Record<string, string> = {
+    all: "Todos",
+    student: "Alunos",
+    driver: "Motoristas",
+    admin: "Administradores",
+  };
+
+  return labels[target] ?? target;
+}
+
 export default function AdminPush() {
   const { toast } = useToast();
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [url, setUrl] = useState("/");
   const [target, setTarget] = useState("all");
   const [history, setHistory] = useState<PushHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function loadHistory() {
-    const { data } = await api.get("/admin/push/history");
-    setHistory(data ?? []);
+    try {
+      const { data } = await api.get("/admin/push/history");
+      setHistory(Array.isArray(data) ? data : []);
+    } catch {
+      toast({
+        title: "Erro ao carregar histórico",
+        description: "Não foi possível buscar o histórico de notificações.",
+        variant: "destructive",
+      });
+    }
   }
 
   useEffect(() => {
@@ -49,27 +68,28 @@ export default function AdminPush() {
 
     try {
       setLoading(true);
+
       const { data } = await api.post("/admin/push/send", {
-        title,
-        message,
-        url,
+        title: title.trim(),
+        message: message.trim(),
         target,
       });
 
       toast({
-        title: "Push enviado",
+        title: "Notificação enviada",
         description: `${data.sent ?? 0} usuário(s) receberam a notificação.`,
       });
 
       setTitle("");
       setMessage("");
-      setUrl("/");
       setTarget("all");
+
       await loadHistory();
     } catch (error: any) {
       toast({
-        title: "Erro ao enviar push",
-        description: error?.response?.data?.error ?? "Não foi possível enviar a notificação.",
+        title: "Erro ao enviar notificação",
+        description:
+          error?.response?.data?.error ?? "Não foi possível enviar a notificação.",
         variant: "destructive",
       });
     } finally {
@@ -80,7 +100,7 @@ export default function AdminPush() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <PageHeader
-        title="Push Notifications"
+        title="Enviar notificações"
         description="Envie notificações para alunos, motoristas ou todos os usuários do município."
         icon={Bell}
       />
@@ -89,29 +109,34 @@ export default function AdminPush() {
         <div className="bg-card border border-border rounded-xl p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Send className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-semibold text-foreground">Enviar notificação</h2>
+            <h2 className="font-heading font-semibold text-foreground">
+              Criar nova notificação
+            </h2>
           </div>
 
           <div className="space-y-2">
             <Label>Título</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Nova rota disponível" />
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Ex.: Nova rota disponível"
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Mensagem</Label>
-            <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Ex.: Confira os horários atualizados." />
-          </div>
-
-          <div className="space-y-2">
-            <Label>URL ao clicar</Label>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/student/schedules" />
+            <Input
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Ex.: Confira os horários atualizados."
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Público-alvo</Label>
             <select
               value={target}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(event) => setTarget(event.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="all">Todos</option>
@@ -122,32 +147,50 @@ export default function AdminPush() {
           </div>
 
           <Button onClick={sendPush} disabled={loading} className="w-full">
-            {loading ? "Enviando..." : "Enviar push"}
+            {loading ? "Enviando..." : "Enviar notificação"}
           </Button>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-4 space-y-4">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-semibold text-foreground">Histórico de envios</h2>
+            <h2 className="font-heading font-semibold text-foreground">
+              Histórico de envios
+            </h2>
           </div>
 
           {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum push enviado ainda.</p>
+            <p className="text-sm text-muted-foreground">
+              Nenhuma notificação enviada ainda.
+            </p>
           ) : (
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
               {history.map((item) => (
-                <div key={item.id} className="border border-border rounded-lg p-3 text-sm space-y-1">
+                <div
+                  key={item.id}
+                  className="border border-border rounded-lg p-3 text-sm space-y-1"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <p className="font-medium text-foreground">{item.title}</p>
+
                     <span className="text-xs text-muted-foreground">
                       {new Date(item.createdAt).toLocaleString("pt-BR")}
                     </span>
                   </div>
+
                   <p className="text-muted-foreground">{item.message}</p>
+
                   <p className="text-xs text-muted-foreground">
-                    Alvo: {item.target} · Destinatários: {item.recipients}
+                    Alvo: {targetLabel(item.target)} · Destinatários:{" "}
+                    {item.recipients}
                   </p>
+
+                  {item.city && (
+                    <p className="text-xs text-muted-foreground">
+                      Cidade: {item.city.name} / {item.city.state}
+                    </p>
+                  )}
+
                   {item.sentBy && (
                     <p className="text-xs text-muted-foreground">
                       Enviado por: {item.sentBy.nome}
