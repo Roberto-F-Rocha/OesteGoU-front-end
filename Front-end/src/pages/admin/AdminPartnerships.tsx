@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type CityInfo = { id: number; name: string; state: string };
 
@@ -117,6 +118,8 @@ function EmptyState({ text }: { text: string }) {
 
 export default function AdminPartnerships() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const adminCityId = user?.cityId;
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [cities, setCities] = useState<CityInfo[]>([]);
@@ -185,6 +188,104 @@ export default function AdminPartnerships() {
     }
   }
 
+  function getAgreementDirection(agreement: Agreement) {
+    const requesterCityId = agreement.requesterCity?.id;
+    const partnerCityId = agreement.partnerCity?.id;
+
+    return {
+      isRequester: requesterCityId === adminCityId,
+      isPartner: partnerCityId === adminCityId,
+    };
+  }
+
+  function renderAgreementActions(agreement: Agreement) {
+    const { isRequester, isPartner } = getAgreementDirection(agreement);
+
+    if (agreement.status === "pending" && isPartner) {
+      return (
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => updateAgreementStatus(agreement.id, "active")}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-1" />
+            Aceitar
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => updateAgreementStatus(agreement.id, "rejected")}
+          >
+            <XCircle className="w-4 h-4 mr-1" />
+            Rejeitar
+          </Button>
+        </>
+      );
+    }
+
+    if (agreement.status === "pending" && isRequester) {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => updateAgreementStatus(agreement.id, "canceled")}
+        >
+          Cancelar convite
+        </Button>
+      );
+    }
+
+    if (agreement.status === "active") {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => updateAgreementStatus(agreement.id, "inactive")}
+        >
+          Inativar
+        </Button>
+      );
+    }
+
+    return (
+      <span className="text-xs text-muted-foreground">
+        Sem ações disponíveis
+      </span>
+    );
+  }
+
+  function agreementSubtitle(agreement: Agreement) {
+    const { isRequester, isPartner } = getAgreementDirection(agreement);
+
+    if (agreement.status === "pending" && isRequester) {
+      return "Convite enviado · aguardando resposta da cidade parceira";
+    }
+
+    if (agreement.status === "pending" && isPartner) {
+      return "Convite recebido · aceite ou rejeite a solicitação";
+    }
+
+    if (agreement.status === "active") {
+      return "Parceria ativa";
+    }
+
+    if (agreement.status === "rejected") {
+      return "Convite rejeitado";
+    }
+
+    if (agreement.status === "canceled") {
+      return "Convite cancelado";
+    }
+
+    if (agreement.status === "inactive") {
+      return "Parceria inativa";
+    }
+
+    return agreement.title ?? "Vínculo entre cidades";
+  }
+
   if (loading) {
     return <div className="max-w-7xl mx-auto rounded-xl border border-border bg-card p-8 text-sm text-muted-foreground">Carregando painel de parcerias...</div>;
   }
@@ -250,119 +351,117 @@ export default function AdminPartnerships() {
                 </TableHeader>
                 <TableBody>
                   {agreements.map((agreement) => (
-                    <TableRow key={agreement.id}>
-                      <TableCell>
-                        <p className="font-medium text-foreground">{cityLabel(agreement.requesterCity)} ↔ {cityLabel(agreement.partnerCity)}</p>
-                        <p className="text-xs text-muted-foreground">{agreement.title ?? "Vínculo entre cidades"}</p>
-                      </TableCell>
-                      <TableCell><Badge variant={agreement.status === "active" ? "default" : agreement.status === "rejected" ? "destructive" : "secondary"}>{statusLabel[agreement.status] ?? agreement.status}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{agreement.requestedBy?.nome ?? "Não informado"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{agreement.createdAt ? new Date(agreement.createdAt).toLocaleDateString("pt-BR") : "-"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {agreement.status === "pending" && (
-                            <>
-                              <Button size="sm" variant="outline" onClick={() => updateAgreementStatus(agreement.id, "active")}><CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar</Button>
-                              <Button size="sm" variant="outline" onClick={() => updateAgreementStatus(agreement.id, "rejected")}><XCircle className="w-4 h-4 mr-1" /> Rejeitar</Button>
-                            </>
-                          )}
-                          {agreement.status === "active" && <Button size="sm" variant="outline" onClick={() => updateAgreementStatus(agreement.id, "inactive")}>Inativar</Button>}
-                        </div>
-                      </TableCell>
+                      <TableRow key={agreement.id}>
+                        <<TableCell>
+    <p className="font-medium text-foreground">
+      {cityLabel(agreement.requesterCity)} ↔ {cityLabel(agreement.partnerCity)}
+    </p>
+    <p className="text-xs text-muted-foreground">
+      {agreementSubtitle(agreement)}
+    </p>
+  </TableCell>
+                        <TableCell><Badge variant={agreement.status === "active" ? "default" : agreement.status === "rejected" ? "destructive" : "secondary"}>{statusLabel[agreement.status] ?? agreement.status}</Badge></TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{agreement.requestedBy?.nome ?? "Não informado"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{agreement.createdAt ? new Date(agreement.createdAt).toLocaleDateString("pt-BR") : "-"}</TableCell>
+                        <TableCell className="text-right">
+    <div className="flex justify-end gap-2">
+      {renderAgreementActions(agreement)}
+    </div>
+  </TableCell>
+                      </TableRow>
+                    ))}
+              </TableBody>
+            </Table>
+              </div>
+            )}
+    </div>
+        </section >
+
+        <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <MetricTable title="Alunos por cidade" icon={Users} data={partnership?.studentsByCity ?? []} />
+          <MetricTable title="Motoristas por cidade" icon={Users} data={partnership?.driversByCity ?? []} />
+          <MetricTable title="Ônibus ofertados por cidade" icon={Bus} data={partnership?.vehiclesByCity ?? []} />
+          <MetricTable title="Rotas por cidade" icon={BarChart3} data={partnership?.routesByCity ?? []} />
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><Clock className="w-5 h-5 text-primary" /> Alunos por cidade, dia e turno</h2>
+            <p className="text-xs text-muted-foreground">Ajuda a entender demanda por município e período.</p>
+          </div>
+          {(partnership?.studentsByCityAndShift?.length ?? 0) === 0 ? <EmptyState text="Ainda não há dados por turno." /> : (
+            <div className="overflow-x-auto">
+              <Table className="min-w-[720px]">
+                <TableHeader><TableRow><TableHead>Cidade</TableHead><TableHead>Dia</TableHead><TableHead>Turno</TableHead><TableHead className="text-right">Alunos</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {partnership?.studentsByCityAndShift.map((row, index) => (
+                    <TableRow key={`${row.cityId}-${row.dayOfWeek}-${row.shift}-${index}`}>
+                      <TableCell>{cityLabel(row.city)}</TableCell>
+                      <TableCell>{row.dayOfWeek}</TableCell>
+                      <TableCell><Badge variant="secondary">{shiftLabel[row.shift] ?? row.shift}</Badge></TableCell>
+                      <TableCell className="text-right font-semibold">{row.total}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           )}
-        </div>
-      </section>
+        </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <MetricTable title="Alunos por cidade" icon={Users} data={partnership?.studentsByCity ?? []} />
-        <MetricTable title="Motoristas por cidade" icon={Users} data={partnership?.driversByCity ?? []} />
-        <MetricTable title="Ônibus ofertados por cidade" icon={Bus} data={partnership?.vehiclesByCity ?? []} />
-        <MetricTable title="Rotas por cidade" icon={BarChart3} data={partnership?.routesByCity ?? []} />
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        <div>
-          <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><Clock className="w-5 h-5 text-primary" /> Alunos por cidade, dia e turno</h2>
-          <p className="text-xs text-muted-foreground">Ajuda a entender demanda por município e período.</p>
-        </div>
-        {(partnership?.studentsByCityAndShift?.length ?? 0) === 0 ? <EmptyState text="Ainda não há dados por turno." /> : (
-          <div className="overflow-x-auto">
-            <Table className="min-w-[720px]">
-              <TableHeader><TableRow><TableHead>Cidade</TableHead><TableHead>Dia</TableHead><TableHead>Turno</TableHead><TableHead className="text-right">Alunos</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {partnership?.studentsByCityAndShift.map((row, index) => (
-                  <TableRow key={`${row.cityId}-${row.dayOfWeek}-${row.shift}-${index}`}>
-                    <TableCell>{cityLabel(row.city)}</TableCell>
-                    <TableCell>{row.dayOfWeek}</TableCell>
-                    <TableCell><Badge variant="secondary">{shiftLabel[row.shift] ?? row.shift}</Badge></TableCell>
-                    <TableCell className="text-right font-semibold">{row.total}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-600" /> Ranking de maior carga</h2>
+            <p className="text-xs text-muted-foreground">Rotas com maior volume por dia e turno, incluindo composição por cidade.</p>
           </div>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        <div>
-          <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-600" /> Ranking de maior carga</h2>
-          <p className="text-xs text-muted-foreground">Rotas com maior volume por dia e turno, incluindo composição por cidade.</p>
-        </div>
-        {(partnership?.loadRanking?.length ?? 0) === 0 ? <EmptyState text="Ainda não há ranking de carga." /> : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {partnership?.loadRanking.map((item, index) => {
-              const capacity = item.vehicle?.capacity ?? 0;
-              const over = capacity > 0 && item.totalStudents > capacity;
-              return (
-                <div key={`${item.routeId}-${item.dayOfWeek}-${item.shift}`} className={cn("rounded-xl border p-4 bg-background/50", over ? "border-amber-500/40" : "border-border")}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">#{index + 1} · {item.dayOfWeek} · {shiftLabel[item.shift] ?? item.shift}</p>
-                      <p className="font-heading font-semibold text-foreground truncate">{item.routeName}</p>
-                      <p className="text-xs text-muted-foreground">{item.scheduleTime ?? "--:--"} · {item.university ?? "Universidade não informada"}</p>
+          {(partnership?.loadRanking?.length ?? 0) === 0 ? <EmptyState text="Ainda não há ranking de carga." /> : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {partnership?.loadRanking.map((item, index) => {
+                const capacity = item.vehicle?.capacity ?? 0;
+                const over = capacity > 0 && item.totalStudents > capacity;
+                return (
+                  <div key={`${item.routeId}-${item.dayOfWeek}-${item.shift}`} className={cn("rounded-xl border p-4 bg-background/50", over ? "border-amber-500/40" : "border-border")}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">#{index + 1} · {item.dayOfWeek} · {shiftLabel[item.shift] ?? item.shift}</p>
+                        <p className="font-heading font-semibold text-foreground truncate">{item.routeName}</p>
+                        <p className="text-xs text-muted-foreground">{item.scheduleTime ?? "--:--"} · {item.university ?? "Universidade não informada"}</p>
+                      </div>
+                      <Badge variant={over ? "destructive" : "secondary"}>{item.totalStudents}{capacity ? `/${capacity}` : ""}</Badge>
                     </div>
-                    <Badge variant={over ? "destructive" : "secondary"}>{item.totalStudents}{capacity ? `/${capacity}` : ""}</Badge>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {Object.entries(item.studentsByCity ?? {}).map(([city, total]) => <Badge key={city} variant="outline">{city}: {total}</Badge>)}
+                    </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {Object.entries(item.studentsByCity ?? {}).map(([city, total]) => <Badge key={city} variant="outline">{city}: {total}</Badge>)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        <div>
-          <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><MessageSquareWarning className="w-5 h-5 text-primary" /> Alertas e superlotação</h2>
-          <p className="text-xs text-muted-foreground">Notificações críticas da sua cidade e cidades parceiras.</p>
-        </div>
-        {(partnership?.recentNotifications?.length ?? 0) === 0 ? <EmptyState text="Nenhum alerta recente." /> : (
-          <div className="space-y-2">
-            {partnership?.recentNotifications.map((notification) => (
-              <div key={notification.id} className="rounded-xl border border-border bg-background/50 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-heading font-semibold text-foreground">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{notification.user?.nome ?? "Usuário"} · {cityLabel(notification.user?.city)} {notification.createdAt ? `· ${new Date(notification.createdAt).toLocaleString("pt-BR")}` : ""}</p>
-                  </div>
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                </div>
-              </div>
-            ))}
+        <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground flex items-center gap-2"><MessageSquareWarning className="w-5 h-5 text-primary" /> Alertas e superlotação</h2>
+            <p className="text-xs text-muted-foreground">Notificações críticas da sua cidade e cidades parceiras.</p>
           </div>
-        )}
-      </section>
-    </div>
-  );
+          {(partnership?.recentNotifications?.length ?? 0) === 0 ? <EmptyState text="Nenhum alerta recente." /> : (
+            <div className="space-y-2">
+              {partnership?.recentNotifications.map((notification) => (
+                <div key={notification.id} className="rounded-xl border border-border bg-background/50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-heading font-semibold text-foreground">{notification.title}</p>
+                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{notification.user?.nome ?? "Usuário"} · {cityLabel(notification.user?.city)} {notification.createdAt ? `· ${new Date(notification.createdAt).toLocaleString("pt-BR")}` : ""}</p>
+                    </div>
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div >
+    );
 }
 
 function MetricTable({ title, icon: Icon, data }: { title: string; icon: typeof Users; data: CityMetric[] }) {
