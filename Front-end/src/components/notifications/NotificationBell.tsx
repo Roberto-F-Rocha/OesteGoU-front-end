@@ -10,14 +10,14 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 
 function notificationHome(role?: string) {
-  if (role === "admin") return "/admin/notificacoes";
+  if (role === "admin") return "/admin/notificacao";
   if (role === "driver") return "/motorista/notificacoes";
   return "/aluno/notificacoes";
 }
 
 function normalizeNotificationLink(link: string | null | undefined, role?: string) {
   if (!link || link === "/") return notificationHome(role);
-  if (link === "/admin/push" || link === "/admin/notificacoes" || link === "/notifications" || link === "/notificacoes") return notificationHome(role);
+  if (link === "/admin/push" || link === "/admin/notificacoes" || link === "/admin/notificacao" || link === "/notifications" || link === "/notificacoes") return notificationHome(role);
   if (link.startsWith("/driver/routes")) return "/motorista/rotas";
   if (link.startsWith("/driver")) return link.replace("/driver", "/motorista");
   if (link.startsWith("/student")) return link.replace("/student", "/aluno");
@@ -73,7 +73,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative shrink-0">
-      <button type="button" onClick={goToNotifications} className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-sm hover:bg-muted active:scale-95 transition-all" aria-label="Abrir notificações">
+      <button type="button" onClick={() => setOpen((value) => !value)} className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-sm hover:bg-muted active:scale-95 transition-all" aria-label="Abrir notificações">
         <Bell className={cn("w-4 h-4", unreadCount > 0 && "text-primary")} />
         {unreadCount > 0 && <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-background animate-pulse">{unreadCount > 9 ? "9+" : unreadCount}</span>}
       </button>
