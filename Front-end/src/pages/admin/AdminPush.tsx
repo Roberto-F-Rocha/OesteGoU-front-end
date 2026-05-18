@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, History, Inbox, MessageSquare, Plus, Send, X } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 interface PushHistoryItem {
   id: number;
@@ -27,21 +26,13 @@ function targetLabel(target: string) {
   return labels[target] ?? target;
 }
 
-function senderLabel(metadata?: Record<string, unknown> | null) {
-  const senderRole = String(metadata?.senderRole ?? "");
-  if (senderRole === "student") return "Aluno";
-  if (senderRole === "driver") return "Motorista";
-  if (senderRole === "admin") return "Administrador";
-  return "Sistema";
-}
-
 function EmptyCard({ text }: { text: string }) {
   return <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{text}</div>;
 }
 
 export default function AdminPush() {
   const { toast } = useToast();
-  const { notifications, refreshNotifications } = useNotifications();
+  const { refreshNotifications } = useNotifications();
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [target, setTarget] = useState("all");
@@ -49,23 +40,8 @@ export default function AdminPush() {
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const receivedNotifications = useMemo(() => notifications.filter((notification) => {
-    const senderRole = String(notification.metadata?.senderRole ?? "");
-    const source = String(notification.metadata?.source ?? "");
-    return senderRole === "student" || senderRole === "driver" || source.startsWith("student_") || source.startsWith("driver_") || source.includes("attendance") || source.includes("document") || source.includes("reservation");
-  }), [notifications]);
-
-  const studentNotifications = receivedNotifications.filter((notification) => {
-    const senderRole = String(notification.metadata?.senderRole ?? "");
-    const source = String(notification.metadata?.source ?? "");
-    return senderRole === "student" || source.startsWith("student_") || source.includes("attendance");
-  });
-
-  const driverNotifications = receivedNotifications.filter((notification) => {
-    const senderRole = String(notification.metadata?.senderRole ?? "");
-    const source = String(notification.metadata?.source ?? "");
-    return senderRole === "driver" || source.startsWith("driver_");
-  });
+  const studentSent = history.filter((item) => item.target === "student" || item.target === "all").reduce((total, item) => total + (item.target === "student" ? item.recipients : 0), 0);
+  const driverSent = history.filter((item) => item.target === "driver" || item.target === "all").reduce((total, item) => total + (item.target === "driver" ? item.recipients : 0), 0);
 
   async function loadHistory() {
     try {
@@ -108,7 +84,7 @@ export default function AdminPush() {
     <div className="max-w-6xl mx-auto space-y-6">
       <PageHeader
         title="Notificações"
-        description="Acompanhe avisos recebidos de alunos e motoristas, veja o histórico enviado e crie novos comunicados quando necessário."
+        description="Envie comunicados para alunos e motoristas e acompanhe o histórico dos envios realizados pela administração."
         icon={Bell}
         actions={<Button onClick={() => setShowCreateForm((value) => !value)}>{showCreateForm ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}{showCreateForm ? "Fechar criação" : "Criar nova notificação"}</Button>}
       />
@@ -127,19 +103,19 @@ export default function AdminPush() {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4 space-y-4 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Inbox className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Notificações recebidas</h2></div><Badge variant="secondary">{receivedNotifications.length}</Badge></div>
-          {receivedNotifications.length === 0 ? <EmptyCard text="Nenhuma notificação recebida de alunos ou motoristas ainda." /> : <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">{receivedNotifications.map((notification, index) => <div key={notification.id ?? index} className={cn("border border-border rounded-lg p-3 text-sm space-y-1", !notification.readAt && "bg-primary/[0.04]")}><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"><p className="font-medium text-foreground">{notification.title}</p><Badge variant="outline">{senderLabel(notification.metadata)}</Badge></div><p className="text-muted-foreground">{notification.message}</p><p className="text-xs text-muted-foreground">{notification.createdAt ? new Date(notification.createdAt).toLocaleString("pt-BR") : "Sem data"}</p></div>)}</div>}
+          <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Inbox className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Notificações enviadas</h2></div><Badge variant="secondary">{history.length}</Badge></div>
+          {history.length === 0 ? <EmptyCard text="Nenhuma notificação enviada ainda." /> : <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">{history.map((item) => <div key={item.id} className="border border-border rounded-lg p-3 text-sm space-y-1"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"><p className="font-medium text-foreground">{item.title}</p><Badge variant="outline">{targetLabel(item.target)}</Badge></div><p className="text-muted-foreground">{item.message}</p><p className="text-xs text-muted-foreground">Destinatários: {item.recipients} · {new Date(item.createdAt).toLocaleString("pt-BR")}</p>{item.city && <p className="text-xs text-muted-foreground">Cidade: {item.city.name} / {item.city.state}</p>}</div>)}</div>}
         </div>
 
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Resumo recebido</h2></div>
-            <div className="grid grid-cols-2 gap-2"><div className="rounded-xl border border-border bg-background/50 p-3"><p className="text-2xl font-heading font-bold text-foreground">{studentNotifications.length}</p><p className="text-xs text-muted-foreground">De alunos</p></div><div className="rounded-xl border border-border bg-background/50 p-3"><p className="text-2xl font-heading font-bold text-foreground">{driverNotifications.length}</p><p className="text-xs text-muted-foreground">De motoristas</p></div></div>
+            <div className="flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Resumo dos envios</h2></div>
+            <div className="grid grid-cols-2 gap-2"><div className="rounded-xl border border-border bg-background/50 p-3"><p className="text-2xl font-heading font-bold text-foreground">{studentSent}</p><p className="text-xs text-muted-foreground">Para alunos</p></div><div className="rounded-xl border border-border bg-background/50 p-3"><p className="text-2xl font-heading font-bold text-foreground">{driverSent}</p><p className="text-xs text-muted-foreground">Para motoristas</p></div></div>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-            <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><History className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Prévia do que enviei</h2></div><Badge variant="secondary">{history.length}</Badge></div>
-            {history.length === 0 ? <EmptyCard text="Nenhuma notificação enviada ainda." /> : <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">{history.map((item) => <div key={item.id} className="border border-border rounded-lg p-3 text-sm space-y-1"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"><p className="font-medium text-foreground">{item.title}</p><span className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("pt-BR")}</span></div><p className="text-muted-foreground">{item.message}</p><p className="text-xs text-muted-foreground">Alvo: {targetLabel(item.target)} · Destinatários: {item.recipients}</p>{item.city && <p className="text-xs text-muted-foreground">Cidade: {item.city.name} / {item.city.state}</p>}</div>)}</div>}
+            <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><History className="w-5 h-5 text-primary" /><h2 className="font-heading font-semibold text-foreground">Prévia do último envio</h2></div><Badge variant="secondary">{history.length}</Badge></div>
+            {history.length === 0 ? <EmptyCard text="Nenhuma notificação enviada ainda." /> : <div className="border border-border rounded-lg p-3 text-sm space-y-1"><p className="font-medium text-foreground">{history[0].title}</p><p className="text-muted-foreground">{history[0].message}</p><p className="text-xs text-muted-foreground">Alvo: {targetLabel(history[0].target)} · Destinatários: {history[0].recipients}</p></div>}
           </div>
         </div>
       </section>
