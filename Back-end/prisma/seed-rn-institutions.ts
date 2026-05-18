@@ -40,25 +40,37 @@ async function main() {
   console.log("Iniciando seed de instituições do RN...");
 
   for (const institution of institutions) {
-    await prisma.university.upsert({
+    const name = `${institution.acronym} - Instituição`;
+    const metadata = JSON.stringify({
+      officialName: institution.name,
+      acronym: institution.acronym,
+      category: institution.category,
+      logoUrl: institution.logoUrl ?? null,
+      website: institution.website ?? null,
+    });
+
+    const exists = await prisma.university.findFirst({
       where: {
-        name_cityId: {
-          name: `${institution.acronym} - Instituição`,
-          cityId: null as any,
+        name,
+        cityId: null,
+      },
+    });
+
+    if (exists) {
+      await prisma.university.update({
+        where: { id: exists.id },
+        data: {
+          cityName: metadata,
         },
-      },
-      update: {
-        cityName: "Instituição",
-      },
-      create: {
-        name: `${institution.acronym} - Instituição`,
-        cityName: JSON.stringify({
-          officialName: institution.name,
-          acronym: institution.acronym,
-          category: institution.category,
-          logoUrl: institution.logoUrl ?? null,
-          website: institution.website ?? null,
-        }),
+      });
+      continue;
+    }
+
+    await prisma.university.create({
+      data: {
+        name,
+        cityName: metadata,
+        cityId: null,
       },
     });
   }
