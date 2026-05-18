@@ -3,11 +3,28 @@ import jwt from "jsonwebtoken";
 
 let io: Server | null = null;
 
+function getAllowedOrigins() {
+  const origins = new Set<string>();
+
+  if (process.env.FRONTEND_URL) origins.add(process.env.FRONTEND_URL);
+  if (process.env.FRONTEND_URLS) {
+    process.env.FRONTEND_URLS.split(",").map((origin) => origin.trim()).filter(Boolean).forEach((origin) => origins.add(origin));
+  }
+
+  origins.add("https://oestegou.up.railway.app");
+  origins.add("https://incredible-harmony-production-4273.up.railway.app");
+  origins.add("http://localhost:8080");
+  origins.add("http://localhost:5173");
+
+  return Array.from(origins);
+}
+
 export function initSocket(server: any) {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "*",
+      origin: getAllowedOrigins(),
       methods: ["GET", "POST", "PATCH", "DELETE"],
+      credentials: true,
     },
   });
 
