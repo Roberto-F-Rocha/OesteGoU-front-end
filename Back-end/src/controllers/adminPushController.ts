@@ -21,14 +21,14 @@ export async function sendPush(req: any, res: any) {
   const title = String(req.body?.title ?? "").trim();
   const message = String(req.body?.message ?? "").trim();
   const target = normalizeTarget(req.body?.target);
-  const requestedCityId = req.body?.cityId ? Number(req.body.cityId) : null;
   const authenticatedUser = req.user;
+  const adminCityId = authenticatedUser?.cityId ? Number(authenticatedUser.cityId) : null;
 
   if (!title || !message) return res.status(400).json({ error: "Título e mensagem são obrigatórios" });
+  if (!adminCityId) return res.status(403).json({ error: "Administrador sem cidade vinculada." });
 
-  const where: any = { status: "active" };
+  const where: any = { status: "active", cityId: adminCityId };
   if (target !== "all") where.role = target;
-  if (requestedCityId) where.cityId = requestedCityId;
 
   const users = await prisma.user.findMany({
     where,
@@ -43,17 +43,17 @@ export async function sendPush(req: any, res: any) {
         url: target === "all" ? "/" : getDefaultLinkByRole(target),
         target,
         targetRole: target === "all" ? null : target,
-        cityId: requestedCityId ?? authenticatedUser?.cityId ?? null,
+        cityId: adminCityId,
         sentById: authenticatedUser?.id ?? null,
         recipients: 0,
       },
     });
 
-    return res.json({ success: true, sent: 0, log, recipients: [], warning: "Nenhum usuário ativo encontrado para o público selecionado." });
+    return res.json({ success: true, sent: 0, log, recipients: [], warning: "Nenhum usuário ativo encontrado na sua cidade para o público selecionado." });
   }
 
   let sent = 0;
-  const recipients: Array<{ id: number; role: string; email: string | null }> = [];
+  const recipients: Array<{ id: number; role: string; email: string | null; cityId: number | null }> = [];
 
   await Promise.all(users.map(async (user) => {
     const link = getDefaultLinkByRole(user.role);
@@ -72,7 +72,7 @@ export async function sendPush(req: any, res: any) {
           target,
           recipientRole: user.role,
           recipientEmail: user.email,
-          cityId: user.cityId ?? null,
+          cityId: adminCityId,
         },
       });
 
@@ -83,7 +83,7 @@ export async function sendPush(req: any, res: any) {
       }
 
       sent += 1;
-      recipients.push({ id: user.id, role: user.role, email: user.email });
+      recipients.push({ id: user.id, role: user.role, email: user.email, cityId: user.cityId });
       return notification;
     } catch (error) {
       console.error("Erro ao criar notificação interna", error);
@@ -98,7 +98,7 @@ export async function sendPush(req: any, res: any) {
       url: target === "all" ? "/" : getDefaultLinkByRole(target),
       target,
       targetRole: target === "all" ? null : target,
-      cityId: requestedCityId ?? authenticatedUser?.cityId ?? null,
+      cityId: adminCityId,
       sentById: authenticatedUser?.id ?? null,
       recipients: sent,
     },
