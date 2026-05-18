@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed": "ts-node-dev --transpile-only prisma/seed.ts"
+    "seed": "ts-node-dev --transpile-only prisma/seed.ts",
+    "seed:rn": "ts-node-dev --transpile-only prisma/seed-rn.ts"
   },
   "keywords": [],
   "author": "",
