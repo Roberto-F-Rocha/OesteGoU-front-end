@@ -13,7 +13,42 @@ import { initSocket } from "./lib/socket";
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-app.use(cors());
+function getAllowedOrigins() {
+  const origins = new Set<string>();
+
+  if (process.env.FRONTEND_URL) origins.add(process.env.FRONTEND_URL);
+  if (process.env.FRONTEND_URLS) {
+    process.env.FRONTEND_URLS.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .forEach((origin) => origins.add(origin));
+  }
+
+  origins.add("https://oestegou.up.railway.app");
+  origins.add("https://incredible-harmony-production-4273.up.railway.app");
+  origins.add("http://localhost:8080");
+  origins.add("http://localhost:5173");
+
+  return Array.from(origins);
+}
+
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    const allowedOrigins = getAllowedOrigins();
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS bloqueado para origem: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 app.use(securityMiddleware);
